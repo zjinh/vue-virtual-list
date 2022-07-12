@@ -1,0 +1,48 @@
+{
+  "name": "@zjinh/vue-virtual-list",
+  "version": "1.0.1",
+  "author": "zjinh",
+  "description": "适用于vue2的虚拟列表，包含鼠标、方向键选择、下拉刷新，滚动加载",
+  "main": "dist/index.min.js",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dependencies": {
+    "@babel/core": "^7.6.4",
+    "loadsh": "0.0.4",
+    "vue": "^2.6.10"
+  },
+  "devDependencies": {
+    "@vue/babel-preset-app": "^4.0.2",
+    "babel-eslint": "^10.0.1",
+    "babel-loader": "^8.0.6",
+    "css-loader": "^3.2.0",
+    "scss-loader": "0.0.1",
+    "style-loader": "^1.0.0",
+    "uglifyjs-webpack-plugin": "^2.2.0",
+    "url-loader": "^2.2.0",
+    "vue-loader": "^15.7.1",
+    "vue-template-compiler": "^2.6.10",
+    "webpack": "^4.41.2",
+    "webpack-cli": "^3.3.9",
+    "webpack-dev-server": "^3.7.2"
+  },
+  "scripts": {
+    "start": "webpack-dev-server --hot --inline",
+    "build": "webpack --display-error-details --config webpack.config.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zjinh/vue-virtual-list.git"
+  },
+  "keywords": [
+    "vue",
+    "virtual-list"
+  ],
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/zjinh/vue-virtual-list/issues"
+  },
+  "homepage": "https://github.com/zjinh/vue-virtual-list#readme"
+}
