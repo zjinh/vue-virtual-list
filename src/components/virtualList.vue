@@ -29,7 +29,7 @@
     </div>
     <!--内容区域-->
     <div class="virtual-list-container" :style="containerStyle" :class="{ anim: scrollAnim }">
-      <div ref="items" class="virtual-item-group" :class="{flex:column!==0}" :id="row._key" :key="row._key" v-for="row in renderListData">
+      <div ref="items" class="virtual-item-group" :class="{flex:column!==1}" :id="row._key" :key="row._key" v-for="row in renderListData">
         <template v-for="(item, col_index) in row.value">
           <div class="virtual-item" :key="row._key + '-' + col_index" :data-index="item._index">
             <slot name="default" :item="item" :index="item._index" :select="activeGroupPosition(item, item._index)"></slot>
@@ -48,7 +48,36 @@
 </template>
 
 <script>
-import _ from 'lodash';
+const _ ={
+  debounce(func,wait = 50,immediate = false){
+    let timer = null;
+    let result;
+    let debounced = function(...args){
+      if(timer){
+        clearTimeout(timer)
+      }
+      if(immediate){
+        let callNow = !timer;
+        timer = setTimeout(()=>{
+          timer = null;
+        },wait);
+        if(callNow){
+          result = func.apply(this,args)
+        }
+      }else{
+        timer = setTimeout(()=>{
+          func.apply(this,args);
+        },wait);
+      }
+      return result;
+    }
+    debounced.cancel = function(){
+      clearTimeout(timer);
+      timer = null;
+    };
+    return debounced;
+  }
+};
 let version=require("../../package.json").version
 export default {
   name: 'virtualList',
@@ -180,8 +209,6 @@ export default {
       dragState: 'none',
       //当前下拉距离
       touchDistance: 0,
-      //是否正在滚动
-      scrolling: false,
       //可视区域高度
       screenHeight: 0,
       //起始索引
@@ -333,9 +360,7 @@ export default {
   },
   created() {
     this.initPositions();
-    this.setScrollState(false);
     this.scrollEnd = _.debounce((event, data) => {
-      this.setScrollState(false);
       this.$emit('scrollEnd', event, data);
     }, 100);
   },
@@ -397,16 +422,10 @@ export default {
   watch: {
     itemWidth: function() {
       if (!this.itemWidth) {
-        this.column=0;
-        this.start = this.getStartIndex(this.scrollTop);
-        //此时的结束索引
-        this.end = this.start + this.visibleCount;
-        //更新偏移量
-        this.setStartOffset();
-      } else {
-        this.windowResize()
+        this.column=1;
       }
-    }
+      this.windowResize()
+    },
   },
   methods: {
     startRender() {
@@ -426,14 +445,16 @@ export default {
         let count = Math.floor(this.$el.clientWidth / this.itemWidth);
         this.column = Math.max(1, count);
       }
+      this.$nextTick(()=>{
+        this.initPositions()
+        this.scrollEvent({
+          target:this.$el
+        })
+      })
     },
     getSizeInfo() {
       this.screenHeight = this.$el.clientHeight||this.$el.parentNode.clientHeight;
       this.areaInfo = this.$el.getBoundingClientRect();
-    },
-    //设定滚动状态
-    setScrollState(flg = false) {
-      this.scrolling = flg;
     },
     //防抖处理，设置滚动状态
     scrollEnd(event, data) {
@@ -514,8 +535,6 @@ export default {
       this.scrollTop = event.target.scrollTop;
       //当前滚动位置
       let scrollTop = this.scrollTop;
-      //更新滚动状态
-      this.setScrollState(true);
       //排除不需要计算的情况
       if (!this.anchorPoint || scrollTop > this.anchorPoint.bottom || scrollTop < this.anchorPoint.top) {
         //此时的开始索引
