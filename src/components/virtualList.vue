@@ -29,7 +29,7 @@
     </div>
     <!--内容区域-->
     <div class="virtual-list-container" :style="containerStyle" :class="{ anim: scrollAnim }">
-      <div ref="items" class="virtual-item-group" :id="row._key" :key="row._key" v-for="row in renderListData">
+      <div ref="items" class="virtual-item-group" :class="{flex:column!==0}" :id="row._key" :key="row._key" v-for="row in renderListData">
         <template v-for="(item, col_index) in row.value">
           <div class="virtual-item" :key="row._key + '-' + col_index" :data-index="item._index">
             <slot name="default" :item="item" :index="item._index" :select="activeGroupPosition(item, item._index)"></slot>
@@ -37,7 +37,7 @@
         </template>
         <!--空占位-->
         <template v-if="row.value.length < column">
-          <div v-for="index in column - (row.value.length % column)" class="virtual-item" :key="'empty-' + index">{{ index }}</div>
+          <div v-for="index in column - (row.value.length % column)" class="virtual-item" :key="'empty-' + index"></div>
         </template>
       </div>
     </div>
@@ -83,7 +83,7 @@ export default {
     //缓冲区比例
     bufferScale: {
       type: Number,
-      default: 0,
+      default: 1,
     },
     //滑动距离与真实距离比值
     touchScale: {
@@ -234,7 +234,15 @@ export default {
             value: [item],
           });
         } else {
-          init[init.length - 1].value.push(item);
+          let dataIndex=Math.max(0, init.length - 1)
+          if (init[dataIndex]) {
+            init[dataIndex].value.push(item);
+          } else {
+            init[dataIndex]={
+              value: []
+            }
+            init[dataIndex].value.push(item);
+          }
         }
         return init;
       }, []);
@@ -332,16 +340,19 @@ export default {
     }, 100);
   },
   mounted() {
+    window.addEventListener('resize', this.windowResize);
     if (this.itemWidth) {
-      window.addEventListener('resize', this.windowResize);
       this.$nextTick(() => {
         this.windowResize();
       });
     }
-    this.screenHeight = this.$el.clientHeight;
-    this.start = 0;
-    this.end = this.start + this.visibleCount;
-    this.setStartOffset();
+    this.startRender()
+    if (!this.screenHeight) {
+      let a=setTimeout(() => {
+        this.startRender()
+        clearTimeout(a)
+      }, 100)
+    }
     //添加拖拽事件
     if (this.enablePullDown) {
       let list = this.$refs.list;
@@ -350,25 +361,19 @@ export default {
       list.addEventListener('touchend', this.touchEndEvent);
     }
     //方向键选择
-    if (this.arrowSelect) {
-      document.addEventListener('keydown', this.handleArrowSelect);
-      document.addEventListener('keyup', this.keyUpHandler);
-    }
+    /*document.addEventListener('keydown', this.handleArrowSelect);
+    document.addEventListener('keyup', this.keyUpHandler);*/
   },
   beforeDestroy() {
-    if (this.itemWidth) {
-      window.removeEventListener('resize', this.windowResize);
-    }
+    window.removeEventListener('resize', this.windowResize);
     if (this.enablePullDown) {
       let list = this.$refs.list;
       list.removeEventListener('touchstart', this.touchStartEvent);
       list.removeEventListener('touchmove', this.touchMoveEvent);
       list.removeEventListener('touchend', this.touchEndEvent);
     }
-    if (this.arrowSelect) {
-      document.removeEventListener('keydown', this.handleArrowSelect);
-      document.removeEventListener('keyup', this.keyUpHandler);
-    }
+    /*document.removeEventListener('keydown', this.handleArrowSelect);
+    document.removeEventListener('keyup', this.keyUpHandler);*/
   },
   updated() {
     if (this.dragState !== 'none') {
@@ -389,10 +394,42 @@ export default {
       this.setStartOffset();
     });
   },
+  watch: {
+    itemWidth: function() {
+      if (!this.itemWidth) {
+        this.column=0;
+        this.start = this.getStartIndex(this.scrollTop);
+        //此时的结束索引
+        this.end = this.start + this.visibleCount;
+        //更新偏移量
+        this.setStartOffset();
+      } else {
+        this.windowResize()
+      }
+    }
+  },
   methods: {
+    startRender() {
+      this.getSizeInfo()
+      this.start = 0;
+      this.end = this.start + this.visibleCount;
+      this.$emit("callback", {
+        columns: this.maxItems,
+        end: this.end,
+        start: this.start
+      })
+      this.setStartOffset();
+    },
     windowResize() {
-      let count = Math.floor(this.$el.clientWidth / this.itemWidth);
-      this.column = Math.max(1, count);
+      this.getSizeInfo()
+      if (this.itemWidth) {
+        let count = Math.floor(this.$el.clientWidth / this.itemWidth);
+        this.column = Math.max(1, count);
+      }
+    },
+    getSizeInfo() {
+      this.screenHeight = this.$el.clientHeight||this.$el.parentNode.clientHeight;
+      this.areaInfo = this.$el.getBoundingClientRect();
     },
     //设定滚动状态
     setScrollState(flg = false) {
@@ -759,6 +796,9 @@ export default {
       }
     },
     handleArrowSelect(e) {
+      if (!this.arrowSelect) {
+        return;
+      }
       if (this.listData.length < 2) {
         return;
       }
@@ -939,7 +979,7 @@ export default {
 .virtual-list-container.anim {
   transition: transform 0.2s;
 }
-.virtual-item-group {
+.virtual-item-group.flex {
   display: flex;
 }
 .virtual-item-group > .virtual-item {

@@ -43,18 +43,18 @@ export default {
 
 ## props参数
 
-|参数|类型|默认值|是否必填|说明|
+|参数|类型|默认值|必填|说明|
 |:--:|:--:|:--:|:--:|:--|
 |listData|Array|[]|✓|列表数据|
 |itemWidth|Number|0||元素的宽度|
 |itemHeight|Number|0|✓|元素的最小高度（支持动态高度）|
 |height|String|100%||列表的高度。|
 |absoluteHeight|Boolean|false||绝对高度，启用后将不会出现滚动条|
-|bufferScale|Number|0||可见区域外的上/下方预渲染比例，避免快速滑动时闪烁|
+|bufferScale|Number|1||可见区域外的上/下方预渲染比例，避免快速滑动时闪烁|
 |touchScale|Number|2||手指移动与组件移动距离的比|
 |选中功能|||||
 |selectField|String|isSelected||选中所使用的字段|
-|arrowSelect|Boolean|false||使用方向键选择|
+|arrowSelect|Boolean|false||使用方向键选择(无效)|
 |mouseSelect|Boolean|false||鼠标拖拽选择|
 |mouseAreaClassName|String|default||鼠标拖拽选择区域class|
 |calcGroupSelect|Boolean|false||计算相邻选中起始（仅在itemWidth为0的情况下有效）|
@@ -78,7 +78,7 @@ export default {
 |scrollDown||滚动到底部的回调|
 |onPull|state,distance|下拉状态变更的回调|
 |pullDown||下拉刷新触发的回调|
-
+|callback|data|渲染回调|
 ## 下拉状态说明
 
 |状态|说明|
