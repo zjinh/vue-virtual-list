@@ -1,5 +1,5 @@
 <template>
-  <section ref="list" :data-version="version" :style="listHeight" class="virtual-list" @scroll="scrollEvent($event)" @mousedown.stop.prevent="handleMouseSelect">
+  <section ref="list" :data-version="version" :style="listHeight" class="virtual-list" @scroll="scrollEvent($event)" @mousedown="handleMouseSelect">
     <!--撑开滚动条的容器-->
     <div class="virtual-list-phantom" :style="virtualStyle"></div>
     <!--顶部下拉区域-->
