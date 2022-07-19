@@ -10,7 +10,7 @@
         :style="dragStyle"
         :class="{ anim: dragAnim }"
     >
-      <slot name="top" :state="dragState" :distance="touchDistance">
+      <slot name="before" :state="dragState" :distance="touchDistance">
         <div class="pull-down" :style="{ color: pullTextColor }">
 					<span class="pull-down-icon icon-arrow" :class="{ reverse: dragState === 'drop' }" v-if="dragState === 'pull' || dragState === 'drop'">
 						<svg class="icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" width="24" height="24">
@@ -32,6 +32,7 @@
       <div ref="items" class="virtual-item-group" :class="{flex:column!==1}" :id="row._key" :key="row._key" v-for="row in renderListData">
         <template v-for="(item, col_index) in row.value">
           <div class="virtual-item" :key="row._key + '-' + col_index" :data-index="item._index">
+            <!--            {{item._index}}-->
             <slot name="default" :item="item" :index="item._index" :select="activeGroupPosition(item, item._index)"></slot>
           </div>
         </template>
@@ -42,43 +43,43 @@
       </div>
     </div>
     <!--底部插槽-->
-    <slot name="bottom"></slot>
+    <slot name="after"></slot>
     <div v-if="showMouseSelect" class="mouse-area" :class="mouseAreaClassName ? mouseAreaClassName : 'default'" :style="mouseSelectData" />
   </section>
 </template>
 
 <script>
 const _ ={
-  debounce(func,wait = 50,immediate = false){
+  debounce(func, wait = 50, immediate = false) {
     let timer = null;
     let result;
-    let debounced = function(...args){
-      if(timer){
+    let debounced = function(...args) {
+      if (timer) {
         clearTimeout(timer)
       }
-      if(immediate){
+      if (immediate) {
         let callNow = !timer;
-        timer = setTimeout(()=>{
+        timer = setTimeout(() => {
           timer = null;
-        },wait);
-        if(callNow){
-          result = func.apply(this,args)
+        }, wait);
+        if (callNow) {
+          result = func.apply(this, args)
         }
-      }else{
-        timer = setTimeout(()=>{
-          func.apply(this,args);
-        },wait);
+      } else {
+        timer = setTimeout(() => {
+          func.apply(this, args);
+        }, wait);
       }
       return result;
     }
-    debounced.cancel = function(){
+    debounced.cancel = function() {
       clearTimeout(timer);
       timer = null;
     };
     return debounced;
   }
 };
-let version=require("../../package.json").version
+let version=1//require("../../package.json").version
 export default {
   name: 'virtualList',
   props: {
@@ -138,6 +139,20 @@ export default {
       type: Boolean,
       default: function () {
         return false;
+      },
+    },
+    //鼠标选择中
+    dragging: {
+      type: Boolean,
+      default: function () {
+        return false;
+      },
+    },
+    //精确计算元素位置
+    accuratePosition: {
+      type: Boolean,
+      default: function () {
+        return true;
       },
     },
     //鼠标选择class
@@ -258,6 +273,8 @@ export default {
           init.push({
             // _转换后的索引_第一项在原列表中的索引_本行包含几列
             _key: `_${index / this.column}_${index}_${this.column}`,
+            _startIndex: index,
+            _index: init.length,
             value: [item],
           });
         } else {
@@ -270,6 +287,7 @@ export default {
             }
             init[dataIndex].value.push(item);
           }
+          init[dataIndex]._endIndex=index;
         }
         return init;
       }, []);
@@ -386,8 +404,8 @@ export default {
       list.addEventListener('touchend', this.touchEndEvent);
     }
     //方向键选择
-    /*document.addEventListener('keydown', this.handleArrowSelect);
-    document.addEventListener('keyup', this.keyUpHandler);*/
+    document.addEventListener('keydown', this.handleArrowSelect);
+    document.addEventListener('keyup', this.keyUpHandler);
   },
   beforeDestroy() {
     window.removeEventListener('resize', this.windowResize);
@@ -397,8 +415,8 @@ export default {
       list.removeEventListener('touchmove', this.touchMoveEvent);
       list.removeEventListener('touchend', this.touchEndEvent);
     }
-    /*document.removeEventListener('keydown', this.handleArrowSelect);
-    document.removeEventListener('keyup', this.keyUpHandler);*/
+    document.removeEventListener('keydown', this.handleArrowSelect);
+    document.removeEventListener('keyup', this.keyUpHandler);
   },
   updated() {
     if (this.dragState !== 'none') {
@@ -424,8 +442,12 @@ export default {
       if (!this.itemWidth) {
         this.column=1;
       }
+      this.initPositions()
       this.windowResize()
     },
+    scrollTop: function () {
+      this.$el.scrollTop=this.scrollTop
+    }
   },
   methods: {
     startRender() {
@@ -445,11 +467,10 @@ export default {
         let count = Math.floor(this.$el.clientWidth / this.itemWidth);
         this.column = Math.max(1, count);
       }
-      this.$nextTick(()=>{
-        this.initPositions()
+      this.$nextTick(() => {
         this.scrollEvent({
-          target:this.$el
-        })
+          target: this.$el
+        }, true)
       })
     },
     getSizeInfo() {
@@ -474,7 +495,7 @@ export default {
     },
     //获取列表起始索引
     getStartIndex(scrollTop = 0) {
-      return this.binarySearch(this.positions, scrollTop);
+      return Math.max(this.binarySearch(this.positions, scrollTop), 0);
     },
     //二分法查找
     binarySearch(list, value) {
@@ -530,13 +551,13 @@ export default {
       this.startOffset = startOffset;
     },
     //滚动事件
-    scrollEvent(event) {
+    scrollEvent(event, force=false) {
       let element = event.target;
       this.scrollTop = event.target.scrollTop;
       //当前滚动位置
       let scrollTop = this.scrollTop;
       //排除不需要计算的情况
-      if (!this.anchorPoint || scrollTop > this.anchorPoint.bottom || scrollTop < this.anchorPoint.top) {
+      if (force||!this.anchorPoint || scrollTop > this.anchorPoint.bottom || scrollTop < this.anchorPoint.top) {
         //此时的开始索引
         this.start = this.getStartIndex(scrollTop);
         //此时的结束索引
@@ -692,9 +713,16 @@ export default {
         document.onmousemove = null;
         document.onmousedown = null;
         this.showMouseSelect = false;
+        let a = setTimeout(() => {
+          this.$emit('update:dragging', false)
+          clearTimeout(a)
+        }, 200)
       };
       document.onmousemove = (ev) => {
         if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.buttons === 2) return;
+        if (!this.dragging) {
+          this.$emit('update:dragging', true)
+        }
         this.showMouseSelect = true;
         let end = {
           x: ev.clientX - this.areaInfo.left + area.scrollLeft,
@@ -716,6 +744,9 @@ export default {
         for (let i = 0; i < selList.length; i++) {
           let elm = selList[i];
           let index = elm.dataset.index;
+          if (this.accuratePosition) {
+            elm=elm.children[0]||elm
+          }
           let item = this.listData[index];
           if (!item) {
             break;
@@ -735,6 +766,7 @@ export default {
             }
           }
         }
+        this.$emit('update:listData', this.listData)
       };
     },
     //计算当前节点的选中
@@ -808,6 +840,7 @@ export default {
       }
       return this.listData;
     },
+    //方向键选择
     keyUpHandler(e) {
       if (!e.shiftKey) {
         this.oldSelectIndex = -1;
@@ -878,34 +911,63 @@ export default {
       }
       //更新滚动条位置
       if (isBlockMap) {
-        let dataLength = this.renderListData.length;
-        let showMaxItems = Math.min(this.column * (dataLength - 2) + this.start * this.column, this.listData.length - 1); //计算当前页面能显示多少个
-        if (actionIndex > showMaxItems) {
-          //超过当前屏幕显示在下方
-          this.$el.scrollTop = this.itemHeight * (Math.floor(actionIndex / this.column) - dataLength + 2);
-        } else if (actionIndex < this.start * this.column) {
-          //超过当前屏幕显示，在上方
-          this.$el.scrollTop = this.itemHeight * (Math.floor(actionIndex / this.column) - dataLength + 4);
+        //结束点计算
+        /*let endIndex=this.end;
+        let endRow=this.positions[endIndex]
+        if (!endRow) {
+          endIndex--
+          endRow=this.positions[endIndex]
         }
-        if (actionIndex >= showMaxItems) {
-          //需要向下换行
+        let isOverFlow=endRow.bottom> this.screenHeight;
+        if (isOverFlow) {
+          while (isOverFlow) {
+            endIndex--
+            endRow=this.positions[endIndex]
+            isOverFlow=endRow.bottom> this.screenHeight;
+          }
+        }
+
+        let renderStart=this.start+this.aboveCount
+        let renderEnd=renderStart+endIndex-1
+        console.log(renderStart, renderEnd, this._listData.length)
+        let renderIndex={
+          start: this._listData[renderStart]._index,
+          end: this._listData[renderEnd]._index
+        }
+        console.log(renderIndex)
+        let actionRowIndex=Math.floor(actionIndex/this.column)
+        if (actionRowIndex>renderIndex.end) {
           this.$el.scrollTop += this.itemHeight;
-        } else if (actionIndex < (this.start + 1) * this.column) {
-          //需要向上换行
+        } else if (actionRowIndex<renderIndex.start) {
           this.$el.scrollTop -= this.itemHeight;
         }
+        let dataLength = this.renderListData.length;*/
+        /*if (actionIndex > showMaxItems) {
+          //超过当前屏幕显示在下方
+          // this.$el.scrollTop = this.itemHeight * (Math.floor(actionIndex / this.column) - dataLength + 2);
+        } else if (actionIndex < (this.start+1) * this.column) {
+          //超过当前屏幕显示，在上方
+          this.$el.scrollTop -= this.itemHeight// * (Math.floor(actionIndex / this.column));
+        }*/
+        /*if (actionIndex >= showMaxItems) {
+          //需要向下换行
+          this.$el.scrollTop += this.itemHeight;
+        } else if (actionIndex < (this.start+1) * this.column) {
+          //需要向上换行
+          this.$el.scrollTop -= this.itemHeight;
+        }*/
       } else {
         if (actionIndex > this.end) {
           //超过当前屏幕显示,在下方
-          this.$el.scrollTop = this.itemHeight * actionIndex;
+          this.scrollTop = this.itemHeight * actionIndex;
         } else if (actionIndex < this.start) {
           //超过当前屏幕显示，在上方
-          this.$el.scrollTop = this.itemHeight * actionIndex;
+          this.scrollTop = this.itemHeight * actionIndex;
         }
-        if (actionIndex + 3 >= this.end && actionDirection === 'ArrowDown') {
-          this.$el.scrollTop += this.itemHeight;
+        if (actionIndex + 2 >= this.end && actionDirection === 'ArrowDown') {
+          this.scrollTop += this.itemHeight;
         } else if (actionIndex <= this.start && actionDirection === 'ArrowUp') {
-          this.$el.scrollTop -= this.itemHeight;
+          this.scrollTop -= this.itemHeight;
         }
       }
       this.lastActionIndex = actionIndex;

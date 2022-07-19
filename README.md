@@ -57,6 +57,8 @@ export default {
 |arrowSelect|Boolean|false||使用方向键选择(无效)|
 |mouseSelect|Boolean|false||鼠标拖拽选择|
 |mouseAreaClassName|String|default||鼠标拖拽选择区域class|
+|dragging|Boolean|false||是否正在拖拽，必须使用sync修饰符|
+|accuratePosition|Boolean||拖拽时是否精确元素位置|
 |calcGroupSelect|Boolean|false||计算相邻选中起始（仅在itemWidth为0的情况下有效）|
 |multipleSelect|Boolean|false||是否可多选，开启后使用shift可配合方向键多选|
 |下拉刷新功能|||||
@@ -93,5 +95,5 @@ export default {
 |名称|说明|插槽Prop|
 |:--:|:--:|:--|
 |default|默认插槽|item:列表项当前数据<br>index:数据索引<br>select:数据选中的起始|
-|top|顶部下拉插槽|state:下拉状态<br>distance:下拉距离|
-|bottom|底部插槽|无|
+|before|顶部下拉插槽|state:下拉状态<br>distance:下拉距离|
+|after|底部插槽|无|
