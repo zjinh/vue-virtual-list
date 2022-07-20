@@ -54,7 +54,7 @@ export default {
 |touchScale|Number|2||手指移动与组件移动距离的比|
 |选中功能|||||
 |selectField|String|isSelected||选中所使用的字段|
-|arrowSelect|Boolean|false||使用方向键选择(无效)|
+|arrowSelect|Boolean|false||使用方向键选择(只支持列表)|
 |mouseSelect|Boolean|false||鼠标拖拽选择|
 |mouseAreaClassName|String|default||鼠标拖拽选择区域class|
 |dragging|Boolean|false||是否正在拖拽，必须使用sync修饰符|
