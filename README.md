@@ -19,6 +19,13 @@ Vue.use(virtualList);
 export default {
     components:{
         virtualList
+    },
+    methods:{
+        scrollTo(index){
+            this.$virtualList.scrollTo(index)//滚动到指定下标的位置
+            $refs.virtualList.scrollTo(index)
+            //两种用法均可
+        }
     }
 }
 ```
@@ -58,7 +65,7 @@ export default {
 |mouseSelect|Boolean|false||鼠标拖拽选择|
 |mouseAreaClassName|String|default||鼠标拖拽选择区域class|
 |dragging|Boolean|false||是否正在拖拽，必须使用sync修饰符|
-|accuratePosition|Boolean||拖拽时是否精确元素位置|
+|accuratePosition|Boolean|true|拖拽时是否精确元素位置|
 |calcGroupSelect|Boolean|false||计算相邻选中起始（仅在itemWidth为0的情况下有效）|
 |multipleSelect|Boolean|false||是否可多选，开启后使用shift可配合方向键多选|
 |下拉刷新功能|||||
@@ -71,6 +78,7 @@ export default {
 |pullLoadingText|String|刷新中...||拉下状态为loading时提示区的文字|
 |底部加载更多|||||
 |scrollEndDistance|Number|0||距离底部多少px时触发加载|
+
 ## 回调事件
 
 |事件名称|回调参数|说明|
@@ -81,6 +89,7 @@ export default {
 |onPull|state,distance|下拉状态变更的回调|
 |pullDown||下拉刷新触发的回调|
 |callback|data|渲染回调|
+
 ## 下拉状态说明
 
 |状态|说明|
@@ -89,6 +98,12 @@ export default {
 |drop|距离达到 pullDistance 触发 pullDown|
 |loading|已被释放，pullDown 已经执行|
 |none|刷新完成或未触发刷新动作|
+
+## 方法
+
+|方法|说明|
+|:--:|:--|
+|this.$virtualList.scrollTo|滚动到指定数据下标的位置|
 
 ## 插槽
 

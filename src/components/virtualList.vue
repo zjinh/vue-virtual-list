@@ -49,6 +49,7 @@
 </template>
 
 <script>
+import Vue from "vue"
 const _ ={
   debounce(func, wait = 50, immediate = false) {
     let timer = null;
@@ -79,7 +80,7 @@ const _ ={
     return debounced;
   }
 };
-let version=1//require("../../package.json").version
+let version=require("../../package.json").version
 export default {
   name: 'virtualList',
   props: {
@@ -383,6 +384,9 @@ export default {
     }, 100);
   },
   mounted() {
+    this.$nextTick(() => {
+      Vue.prototype.$virtualList=this
+    })
     window.addEventListener('resize', this.windowResize);
     if (this.itemWidth) {
       this.$nextTick(() => {
@@ -408,6 +412,7 @@ export default {
     document.addEventListener('keyup', this.keyUpHandler);
   },
   beforeDestroy() {
+    Vue.prototype.$virtualList=null
     window.removeEventListener('resize', this.windowResize);
     if (this.enablePullDown) {
       let list = this.$refs.list;
@@ -434,20 +439,21 @@ export default {
       //获取真实元素大小，修改对应的尺寸缓存
       this.updateItemsSize();
       //更新真实偏移量
-      this.setStartOffset();
+      this.scrollEvent({
+        target: this.$el
+      })
     });
   },
   watch: {
     itemWidth: function() {
-      if (!this.itemWidth) {
-        this.column=1;
-      }
-      this.initPositions()
-      this.windowResize()
+      this.renderConfigChange(true)
+    },
+    listHeight: function () {
+      this.renderConfigChange()
     },
     scrollTop: function () {
       this.$el.scrollTop=this.scrollTop
-    }
+    },
   },
   methods: {
     startRender() {
@@ -455,7 +461,7 @@ export default {
       this.start = 0;
       this.end = this.start + this.visibleCount;
       this.$emit("callback", {
-        columns: this.maxItems,
+        columns: this.column,
         end: this.end,
         start: this.start
       })
@@ -472,6 +478,15 @@ export default {
           target: this.$el
         }, true)
       })
+    },
+    renderConfigChange(calcSize=false) {
+      if (!this.itemWidth) {
+        this.column=1;
+      }
+      if (calcSize) {
+        this.initPositions()
+      }
+      this.windowResize()
     },
     getSizeInfo() {
       this.screenHeight = this.$el.clientHeight||this.$el.parentNode.clientHeight;
@@ -848,7 +863,7 @@ export default {
       }
     },
     handleArrowSelect(e) {
-      if (!this.arrowSelect) {
+      if (!this.arrowSelect||this.itemWidth) {
         return;
       }
       if (this.listData.length < 2) {
@@ -972,6 +987,28 @@ export default {
       }
       this.lastActionIndex = actionIndex;
       this.setSelectState(actionIndex, shiftHold);
+    },
+    //滚动到指定位置
+    scrollTo(index = 0) {
+      if (index<0) {
+        return
+      }
+      let listIndex = index
+      if (this.itemWidth) {
+        listIndex = Math.max(Math.abs(index / this.column) - 1, 0)
+      } else {
+        listIndex = index > this._listData.length ? Math.abs(index / this._listData.length) : index
+      }
+      let scrollTop=this.itemHeight * listIndex
+      this.$el.scrollTo({
+        left: 0,
+        top: scrollTop,
+        behavior: 'smooth'
+      })
+      this.scrollTop=scrollTop
+      this.scrollEvent({
+        target: this.$el
+      }, true)
     },
   },
 };
