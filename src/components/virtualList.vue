@@ -470,7 +470,7 @@ export default {
     windowResize() {
       this.getSizeInfo()
       if (this.itemWidth) {
-        let count = Math.floor(this.$el.clientWidth / this.itemWidth);
+        let count = Math.floor(this.$el.offsetWidth / this.itemWidth);
         this.column = Math.max(1, count);
       }
       this.$nextTick(() => {
