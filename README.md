@@ -65,7 +65,7 @@ export default {
 |mouseSelect|Boolean|false||鼠标拖拽选择|
 |mouseAreaClassName|String|default||鼠标拖拽选择区域class|
 |dragging|Boolean|false||是否正在拖拽，必须使用sync修饰符|
-|accuratePosition|Boolean|true|拖拽时是否精确元素位置|
+|accuratePosition|Boolean|true||拖拽时是否精确元素位置|
 |calcGroupSelect|Boolean|false||计算相邻选中起始（仅在itemWidth为0的情况下有效）|
 |multipleSelect|Boolean|false||是否可多选，开启后使用shift可配合方向键多选|
 |下拉刷新功能|||||
