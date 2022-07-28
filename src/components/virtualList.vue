@@ -263,6 +263,8 @@ export default {
       },
       lastActionIndex: 0,
       oldSelectIndex: -1,
+      lockScroll: false,
+      lockTimer: null,
     };
   },
   computed: {
@@ -460,11 +462,7 @@ export default {
       this.getSizeInfo()
       this.start = 0;
       this.end = this.start + this.visibleCount;
-      this.$emit("callback", {
-        columns: this.column,
-        end: this.end,
-        start: this.start
-      })
+      this.renderCallback()
       this.setStartOffset();
     },
     windowResize() {
@@ -473,6 +471,7 @@ export default {
         let count = Math.floor(this.$el.offsetWidth / this.itemWidth);
         this.column = Math.max(1, count);
       }
+      this.renderCallback()
       this.$nextTick(() => {
         this.scrollEvent({
           target: this.$el
@@ -564,6 +563,7 @@ export default {
         startOffset = 0;
       }
       this.startOffset = startOffset;
+      this.lockScroll=false
     },
     //滚动事件
     scrollEvent(event, force=false) {
@@ -590,9 +590,25 @@ export default {
       this.scrollingEvent(event, data);
       //防抖处理滚动结束
       this.scrollEnd(event, data);
+      if (this.lockScroll) {
+        return
+      }
       if (parseInt((element.scrollHeight - scrollTop).toString()) <= element.clientHeight - this.scrollEndDistance) {
         this.$emit('scrollDown');
+        this.lockScroll=true
+        this.unlockScroll()
       }
+    },
+    unlockScroll() {
+      if (this.lockTimer) {
+        clearTimeout(this.lockTimer)
+      }
+      this.lockTimer = setTimeout(() => {
+        this.lockLoad = false;//等待数据更新1000ms后解锁
+        if (this.lockTimer) {
+          clearTimeout(this.lockTimer)
+        }
+      }, 1000)
     },
     //Start
     touchStartEvent(event) {
@@ -1010,6 +1026,13 @@ export default {
         target: this.$el
       }, true)
     },
+    renderCallback(){
+      this.$emit("callback", {
+        columns: this.column,
+        end: this.end,
+        start: this.start
+      })
+    }
   },
 };
 </script>
