@@ -61,13 +61,11 @@ export default {
 |touchScale|Number|2||手指移动与组件移动距离的比|
 |选中功能|||||
 |selectField|String|isSelected||选中所使用的字段|
-|arrowSelect|Boolean|false||使用方向键选择(只支持列表)|
 |mouseSelect|Boolean|false||鼠标拖拽选择|
 |mouseAreaClassName|String|default||鼠标拖拽选择区域class|
 |dragging|Boolean|false||是否正在拖拽，必须使用sync修饰符|
 |accuratePosition|Boolean|true||拖拽时是否精确元素位置|
 |calcGroupSelect|Boolean|false||计算相邻选中起始（仅在itemWidth为0的情况下有效）|
-|multipleSelect|Boolean|false||是否可多选，开启后使用shift可配合方向键多选|
 |下拉刷新功能|||||
 |enablePullDown|Boolean|false||是否开启下拉功能|
 |pullDistance|Number|70||触发下拉回调阈值|

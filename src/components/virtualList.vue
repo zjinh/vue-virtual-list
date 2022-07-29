@@ -1,14 +1,13 @@
 <template>
-  <section ref="list" :data-version="version" :style="listHeight" class="virtual-list" @scroll="scrollEvent($event)" @mousedown="handleMouseSelect">
+  <section ref="list" :data-version="version" :data-w="itemWidth" :data-h="itemHeight" :style="listHeight" class="virtual-list" @scroll="scrollEvent($event)">
     <!--撑开滚动条的容器-->
-    <div class="virtual-list-phantom" :style="virtualStyle"></div>
+    <div ref="phantom" class="virtual-list-phantom"></div>
     <!--顶部下拉区域-->
     <div
+        ref="top"
         class="virtual-top-container"
         v-if="enablePullDown"
         v-show="dragState !== 'none' && touchDistance >= 20"
-        :style="dragStyle"
-        :class="{ anim: dragAnim }"
     >
       <slot name="before" :state="dragState" :distance="touchDistance">
         <div class="pull-down" :style="{ color: pullTextColor }">
@@ -28,11 +27,10 @@
       </slot>
     </div>
     <!--内容区域-->
-    <div class="virtual-list-container" :style="containerStyle" :class="{ anim: scrollAnim }">
-      <div ref="items" class="virtual-item-group" :class="{flex:column!==1}" :id="row._key" :key="row._key" v-for="row in renderListData">
+    <div ref="content" class="virtual-list-container">
+      <div ref="items" class="virtual-item-group" :class="{flex:column!==1}" :id="row._key" :key="row._key" v-for="(row) in renderListData">
         <template v-for="(item, col_index) in row.value">
-          <div class="virtual-item" :key="row._key + '-' + col_index" :data-index="item._index">
-            <!--            {{item._index}}-->
+          <div class="virtual-item" :key="row._key + '-' + col_index" :data-index="item._index" :data-show="row._index>=start&&row._index<=end">
             <slot name="default" :item="item" :index="item._index" :select="activeGroupPosition(item, item._index)"></slot>
           </div>
         </template>
@@ -44,12 +42,13 @@
     </div>
     <!--底部插槽-->
     <slot name="after"></slot>
-    <div v-if="showMouseSelect" class="mouse-area" :class="mouseAreaClassName ? mouseAreaClassName : 'default'" :style="mouseSelectData" />
+    <selectRegion v-if="mouseSelect" :regionArea="$refs.list" :regionClass="mouseAreaClassName" @dragging="handleDragging" @select="handleMouseSelect"></selectRegion>
   </section>
 </template>
 
 <script>
 import Vue from "vue"
+import selectRegion from "./selectRegion.vue";
 const _ ={
   debounce(func, wait = 50, immediate = false) {
     let timer = null;
@@ -83,6 +82,9 @@ const _ ={
 let version=require("../../package.json").version
 export default {
   name: 'virtualList',
+  components: {
+    selectRegion
+  },
   props: {
     //所有列表数据
     listData: {
@@ -237,32 +239,9 @@ export default {
       positions: [],
       //偏移量
       startOffset: 0,
-      //拖拽偏移
-      dragOffset: 0,
-      //拖拽产生的高度
-      dragHeight: 0,
-      //拖拽过渡
-      dragAnim: false,
-      //滚动过渡
-      scrollAnim: false,
       //预设偏移量
       prevPos: 0,
-      //滚动条位置
-      scrollTop: 0,
-      //鼠標拖拽選擇
-      mouseSelectData: {
-        left: '0',
-        top: '0',
-        width: '0',
-        height: '0',
-      },
-      showMouseSelect: false,
-      areaInfo: {
-        top: 0,
-        left: 0,
-      },
-      lastActionIndex: 0,
-      oldSelectIndex: -1,
+      //滚动条加载锁
       lockScroll: false,
       lockTimer: null,
     };
@@ -312,17 +291,6 @@ export default {
       let end = this.end + this.belowCount;
       return this._listData.slice(start, end);
     },
-    containerStyle() {
-      let startOffset = this.dragOffset || this.startOffset;
-      return {
-        transform: `translate3d(0,${startOffset}px,0)`,
-      };
-    },
-    dragStyle() {
-      return {
-        height: `${this.dragOffset || this.dragHeight}px`,
-      };
-    },
     dragStateTitle() {
       let state = this.dragState;
       if (state === 'pull') {
@@ -336,9 +304,7 @@ export default {
     },
     virtualStyle() {
       let item = this.positions[this.positions.length - 1];
-      return {
-        height: `${item ? item.bottom : 0}px`,
-      };
+      return `${item ? item.bottom : 0}px`
     },
     nowSelectIndex: function () {
       let data = [];
@@ -372,11 +338,9 @@ export default {
       return result;
     },
     listHeight: function () {
-      return this.absoluteHeight
-          ? this.virtualStyle
-          : {
-            height: this.height,
-          };
+      return {
+        height: this.absoluteHeight?this.virtualStyle:this.height,
+      }
     },
   },
   created() {
@@ -388,20 +352,18 @@ export default {
   mounted() {
     this.$nextTick(() => {
       Vue.prototype.$virtualList=this
+      if (this.itemWidth) {
+        this.windowResize();
+      }
+      this.startRender()
+      if (!this.screenHeight) {
+        let a=setTimeout(() => {
+          this.startRender()
+          clearTimeout(a)
+        }, 100)
+      }
     })
     window.addEventListener('resize', this.windowResize);
-    if (this.itemWidth) {
-      this.$nextTick(() => {
-        this.windowResize();
-      });
-    }
-    this.startRender()
-    if (!this.screenHeight) {
-      let a=setTimeout(() => {
-        this.startRender()
-        clearTimeout(a)
-      }, 100)
-    }
     //添加拖拽事件
     if (this.enablePullDown) {
       let list = this.$refs.list;
@@ -410,8 +372,8 @@ export default {
       list.addEventListener('touchend', this.touchEndEvent);
     }
     //方向键选择
-    document.addEventListener('keydown', this.handleArrowSelect);
-    document.addEventListener('keyup', this.keyUpHandler);
+    if (this.arrowSelect) {
+    }
   },
   beforeDestroy() {
     Vue.prototype.$virtualList=null
@@ -422,8 +384,8 @@ export default {
       list.removeEventListener('touchmove', this.touchMoveEvent);
       list.removeEventListener('touchend', this.touchEndEvent);
     }
-    document.removeEventListener('keydown', this.handleArrowSelect);
-    document.removeEventListener('keyup', this.keyUpHandler);
+    if (this.arrowSelect) {
+    }
   },
   updated() {
     if (this.dragState !== 'none') {
@@ -436,14 +398,15 @@ export default {
     this.$nextTick(function () {
       let items = this.$refs.items;
       if (!items || !items.length) {
+        this.$refs.phantom.style.height = '0px'
         return;
       }
       //获取真实元素大小，修改对应的尺寸缓存
       this.updateItemsSize();
+      let height = this.positions[this.positions.length - 1].bottom;
+      this.$refs.phantom.style.height = height + 'px'
       //更新真实偏移量
-      this.scrollEvent({
-        target: this.$el
-      })
+      this.setStartOffset()
     });
   },
   watch: {
@@ -452,9 +415,6 @@ export default {
     },
     listHeight: function () {
       this.renderConfigChange()
-    },
-    scrollTop: function () {
-      this.$el.scrollTop=this.scrollTop
     },
   },
   methods: {
@@ -489,7 +449,6 @@ export default {
     },
     getSizeInfo() {
       this.screenHeight = this.$el.clientHeight||this.$el.parentNode.clientHeight;
-      this.areaInfo = this.$el.getBoundingClientRect();
     },
     //防抖处理，设置滚动状态
     scrollEnd(event, data) {
@@ -563,14 +522,14 @@ export default {
         startOffset = 0;
       }
       this.startOffset = startOffset;
+      this.$refs.content.style.transform = `translate3d(0,${startOffset}px,0)`
       this.lockScroll=false
     },
     //滚动事件
     scrollEvent(event, force=false) {
       let element = event.target;
-      this.scrollTop = event.target.scrollTop;
       //当前滚动位置
-      let scrollTop = this.scrollTop;
+      let scrollTop = event.target.scrollTop;
       //排除不需要计算的情况
       if (force||!this.anchorPoint || scrollTop > this.anchorPoint.bottom || scrollTop < this.anchorPoint.top) {
         //此时的开始索引
@@ -610,7 +569,7 @@ export default {
         }
       }, 1000)
     },
-    //Start
+    //下拉加载更多
     touchStartEvent(event) {
       if (!this.enablePullDown) {
         return;
@@ -618,7 +577,6 @@ export default {
       //记录当前起始Y坐标
       this.prevPos = event.touches[0].pageY;
     },
-    //Move
     touchMoveEvent(event) {
       if (!this.enablePullDown) {
         return;
@@ -630,12 +588,13 @@ export default {
       }
       //当前Y坐标
       let curPos = event.touches[0].pageY;
+      let scrollTop=this.$refs.list.scrollTop
       //下拉 且 不在顶部
-      if (curPos > this.prevPos && this.scrollTop !== 0) {
+      if (curPos > this.prevPos && scrollTop !== 0) {
         return;
       }
       //下拉 且 在顶部
-      if (curPos > this.prevPos && this.scrollTop === 0) {
+      if (curPos > this.prevPos && scrollTop === 0) {
         // event.preventDefault();
         this.touchDistance = Math.max(this.touchDistance + curPos - this.prevPos, 0);
 
@@ -654,8 +613,8 @@ export default {
         if (distance <= this.maxDistance || !this.maxDistance) {
           let d = this.maxDistance ? Math.min(distance, this.maxDistance) : distance;
           setTimeout(() => {
-            this.dragOffset = d;
-            this.dragHeight = d;
+            this.$refs.content.style.transform = `translate3d(0,${d}px,0)`
+            this.$refs.top.style.height = `${d}px`
           }, 0);
         }
       }
@@ -681,15 +640,14 @@ export default {
         if (distance <= this.maxDistance || !this.maxDistance) {
           let d = this.maxDistance ? Math.min(distance, this.maxDistance) : distance;
           setTimeout(() => {
-            this.dragOffset = d;
-            this.dragHeight = d;
+            this.$refs.content.style.transform = `translate3d(0,${d}px,0)`
+            this.$refs.top.style.height = `${d}px`
           }, 0);
         }
         event.preventDefault();
       }
       this.prevPos = curPos;
     },
-    //End
     touchEndEvent() {
       if (!this.enablePullDown) {
         return;
@@ -712,93 +670,55 @@ export default {
         this.$emit('pullDown');
       }
       this.$emit('onPull', this.dragState, ~~(this.touchDistance / this.touchScale));
-      this.scrollAnim = true; //设置滚动过渡动画
-      this.dragOffset = ~~(this.touchDistance / this.touchScale); //设置拖拽导致列表下滑的距离
-      this.dragAnim = true; //设置拖拽过渡动画
-      this.dragHeight = ~~(this.touchDistance / this.touchScale); //设置拖拽的高度
-      let a = setTimeout(() => {
-        this.scrollAnim = false;
-        this.dragAnim = false;
-        clearTimeout(a);
+      this.$refs.content.style.transition = `transform 0.3s`
+      this.$refs.content.style.transform = `translate3d(0,${~~(this.touchDistance / this.touchScale)}px,0)`
+      this.$refs.top.style.transition = `height 0.3s`
+      this.$refs.top.style.height = `${~~(this.touchDistance / this.touchScale)}px`
+      setTimeout(() => {
+        this.$refs.content.style.transition = ``
+        this.$refs.top.style.transition = ``
       }, 350);
     },
     //鼠标框选
-    handleMouseSelect(event) {
-      if (!this.mouseSelect) {
-        return;
+    handleMouseSelect(data) {
+      let start=data.start
+      let end=data.end
+      let area_data = {
+        left: Math.min(start.x, end.x),
+        top: Math.min(start.y, end.y) - this.startOffset,
+        width: Math.abs(end.x - start.x),
+        height: Math.abs(end.y - start.y),
+      };
+      let selList = this.$el.querySelectorAll('.virtual-item[data-index]');
+      for (let i = 0; i < selList.length; i++) {
+        let elm = selList[i];
+        let index = elm.dataset.index;
+        if (this.accuratePosition) {
+          elm=elm.children[0]||elm
+        }
+        let item = this.listData[index];
+        if (!item) {
+          break;
+        }
+        let rect = elm.getBoundingClientRect();
+        let sl = rect.width + elm.offsetLeft,
+            st = rect.height + elm.offsetTop;
+        let area_l = area_data.left + area_data.width;
+        let area_t = area_data.top + area_data.height;
+        if (sl > area_data.left && st > area_data.top && elm.offsetLeft < area_l && elm.offsetTop < area_t) {
+          if (item[this.selectField] !== true) {
+            item[this.selectField] = true;
+          }
+        } else {
+          if (item[this.selectField]) {
+            item[this.selectField] = false;
+          }
+        }
       }
-      let area = this.$el;
-      let start = {
-        x: event.clientX - this.areaInfo.left + area.scrollLeft,
-        y: event.clientY - this.areaInfo.top + area.scrollTop,
-      };
-      this.mouseSelectData.left = start.x.toString();
-      this.mouseSelectData.top = start.y.toString();
-      document.onmouseup = () => {
-        this.mouseSelectData = {
-          left: '0',
-          top: '0',
-          width: '0',
-          height: '0',
-        };
-        document.onmousemove = null;
-        document.onmousedown = null;
-        this.showMouseSelect = false;
-        let a = setTimeout(() => {
-          this.$emit('update:dragging', false)
-          clearTimeout(a)
-        }, 200)
-      };
-      document.onmousemove = (ev) => {
-        if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.buttons === 2) return;
-        if (!this.dragging) {
-          this.$emit('update:dragging', true)
-        }
-        this.showMouseSelect = true;
-        let end = {
-          x: ev.clientX - this.areaInfo.left + area.scrollLeft,
-          y: ev.clientY - this.areaInfo.top + area.scrollTop,
-        };
-        this.mouseSelectData = {
-          left: Math.min(start.x, end.x) + 'px',
-          top: Math.min(start.y, end.y) + 'px',
-          width: Math.abs(end.x - start.x) + 'px',
-          height: Math.abs(end.y - start.y) + 'px',
-        };
-        let area_data = {
-          left: Math.min(start.x, end.x),
-          top: Math.min(start.y, end.y) - (this.dragOffset || this.startOffset),
-          width: Math.abs(end.x - start.x),
-          height: Math.abs(end.y - start.y),
-        };
-        let selList = this.$el.querySelectorAll('.virtual-item[data-index]');
-        for (let i = 0; i < selList.length; i++) {
-          let elm = selList[i];
-          let index = elm.dataset.index;
-          if (this.accuratePosition) {
-            elm=elm.children[0]||elm
-          }
-          let item = this.listData[index];
-          if (!item) {
-            break;
-          }
-          let rect = elm.getBoundingClientRect();
-          let sl = rect.width + elm.offsetLeft,
-              st = rect.height + elm.offsetTop;
-          let area_l = area_data.left + area_data.width;
-          let area_t = area_data.top + area_data.height;
-          if (sl > area_data.left && st > area_data.top && elm.offsetLeft < area_l && elm.offsetTop < area_t) {
-            if (item[this.selectField] !== true) {
-              item[this.selectField] = true;
-            }
-          } else {
-            if (item[this.selectField]) {
-              item[this.selectField] = false;
-            }
-          }
-        }
-        this.$emit('update:listData', this.listData)
-      };
+      this.$emit('update:listData', this.listData)
+    },
+    handleDragging(state) {
+      this.$emit('update:dragging', state)
     },
     //计算当前节点的选中
     activeGroupPosition(item, index) {
@@ -830,180 +750,6 @@ export default {
       }
       return result;
     },
-    getSelectIndex(last = false) {
-      if (last) {
-        for (let index = this.listData.length - 1; index >= 0; index--) {
-          const element = this.listData[index];
-          if (element[this.selectField]) return index;
-        }
-      } else {
-        for (let index = 0; index < this.listData.length; index++) {
-          const element = this.listData[index];
-          if (element[this.selectField]) return index;
-        }
-      }
-      return 0;
-    },
-    setSelectState(aIndex, shiftMode = false) {
-      this.lastActionIndex = -1;
-      let item = {};
-      for (let index = 0, len = this.listData.length; index < len; index++) {
-        item = this.listData[index];
-        item[this.selectField] = false;
-      }
-      if (shiftMode) {
-        this.oldSelectIndex = this.oldSelectIndex === -1 ? aIndex : this.oldSelectIndex;
-        let startIndex = this.oldSelectIndex > aIndex ? aIndex : this.oldSelectIndex;
-        let endIndex = this.oldSelectIndex + aIndex - startIndex;
-        let isToMore = startIndex < this.oldSelectIndex;
-        if (!isToMore) {
-          this.lastActionIndex = endIndex;
-        } else {
-          this.lastActionIndex = startIndex;
-        }
-        for (let index = startIndex, len = endIndex; index <= len; index++) {
-          item = this.listData[index];
-          item[this.selectField] = true;
-        }
-      } else {
-        // eslint-disable-next-line vue/no-mutating-props
-        this.listData[aIndex][this.selectField] = true;
-      }
-      return this.listData;
-    },
-    //方向键选择
-    keyUpHandler(e) {
-      if (!e.shiftKey) {
-        this.oldSelectIndex = -1;
-        this.lastActionIndex = -1;
-      }
-    },
-    handleArrowSelect(e) {
-      if (!this.arrowSelect||this.itemWidth) {
-        return;
-      }
-      if (this.listData.length < 2) {
-        return;
-      }
-      let shiftHold = e.shiftKey && this.multipleSelect; //是否按住shift
-      let actionDirection = e.key; //操作方向
-      let firstSelectIndex = Math.max(this.lastActionIndex, this.getSelectIndex());
-      let isBlockMap = this.itemWidth; //是否是缩略图模式
-      if (shiftHold && this.oldSelectIndex === -1) {
-        this.oldSelectIndex = firstSelectIndex;
-      }
-      let actionIndex = firstSelectIndex; //当前选中的下标
-      let isDirection = actionDirection.includes('Arrow');
-      if (isDirection) {
-        e.preventDefault();
-      }
-      //计算新的index
-      switch (actionDirection) {
-        case 'ArrowUp':
-          if (firstSelectIndex === 0) {
-            return;
-          }
-          if (isBlockMap) {
-            actionIndex = Math.max(firstSelectIndex - this.column, 0);
-          } else {
-            actionIndex = firstSelectIndex - 1;
-          }
-          break;
-        case 'ArrowDown':
-          if (firstSelectIndex === this.listData.length - 1) {
-            return;
-          }
-          if (isBlockMap) {
-            actionIndex = firstSelectIndex + this.column;
-            if (actionIndex >= this.listData.length) {
-              if (Math.floor(firstSelectIndex / this.column) === Math.floor(this.listData.length / this.column)) {
-                //判断当前选择的和最后一列是不是同一列
-                return;
-              }
-              actionIndex = this.listData.length - 1;
-            }
-          } else {
-            actionIndex = firstSelectIndex + 1;
-          }
-          break;
-        case 'ArrowLeft':
-          if (isBlockMap) {
-            actionIndex = firstSelectIndex - 1;
-          }
-          break;
-        case 'ArrowRight':
-          if (isBlockMap) {
-            actionIndex = firstSelectIndex + 1;
-          }
-          break;
-      }
-      if (!this.listData[actionIndex] || actionIndex === firstSelectIndex) {
-        return;
-      }
-      //更新滚动条位置
-      if (isBlockMap) {
-        //结束点计算
-        /*let endIndex=this.end;
-        let endRow=this.positions[endIndex]
-        if (!endRow) {
-          endIndex--
-          endRow=this.positions[endIndex]
-        }
-        let isOverFlow=endRow.bottom> this.screenHeight;
-        if (isOverFlow) {
-          while (isOverFlow) {
-            endIndex--
-            endRow=this.positions[endIndex]
-            isOverFlow=endRow.bottom> this.screenHeight;
-          }
-        }
-
-        let renderStart=this.start+this.aboveCount
-        let renderEnd=renderStart+endIndex-1
-        console.log(renderStart, renderEnd, this._listData.length)
-        let renderIndex={
-          start: this._listData[renderStart]._index,
-          end: this._listData[renderEnd]._index
-        }
-        console.log(renderIndex)
-        let actionRowIndex=Math.floor(actionIndex/this.column)
-        if (actionRowIndex>renderIndex.end) {
-          this.$el.scrollTop += this.itemHeight;
-        } else if (actionRowIndex<renderIndex.start) {
-          this.$el.scrollTop -= this.itemHeight;
-        }
-        let dataLength = this.renderListData.length;*/
-        /*if (actionIndex > showMaxItems) {
-          //超过当前屏幕显示在下方
-          // this.$el.scrollTop = this.itemHeight * (Math.floor(actionIndex / this.column) - dataLength + 2);
-        } else if (actionIndex < (this.start+1) * this.column) {
-          //超过当前屏幕显示，在上方
-          this.$el.scrollTop -= this.itemHeight// * (Math.floor(actionIndex / this.column));
-        }*/
-        /*if (actionIndex >= showMaxItems) {
-          //需要向下换行
-          this.$el.scrollTop += this.itemHeight;
-        } else if (actionIndex < (this.start+1) * this.column) {
-          //需要向上换行
-          this.$el.scrollTop -= this.itemHeight;
-        }*/
-      } else {
-        if (actionIndex > this.end) {
-          //超过当前屏幕显示,在下方
-          this.scrollTop = this.itemHeight * actionIndex;
-        } else if (actionIndex < this.start) {
-          //超过当前屏幕显示，在上方
-          this.scrollTop = this.itemHeight * actionIndex;
-        }
-        if (actionIndex + 2 >= this.end && actionDirection === 'ArrowDown') {
-          this.scrollTop += this.itemHeight;
-        } else if (actionIndex <= this.start && actionDirection === 'ArrowUp') {
-          this.scrollTop -= this.itemHeight;
-        }
-      }
-      this.lastActionIndex = actionIndex;
-      this.setSelectState(actionIndex, shiftHold);
-    },
     //滚动到指定位置
     scrollTo(index = 0) {
       if (index<0) {
@@ -1021,12 +767,11 @@ export default {
         top: scrollTop,
         behavior: 'smooth'
       })
-      this.scrollTop=scrollTop
       this.scrollEvent({
         target: this.$el
       }, true)
     },
-    renderCallback(){
+    renderCallback() {
       this.$emit("callback", {
         columns: this.column,
         end: this.end,
@@ -1038,14 +783,6 @@ export default {
 </script>
 
 <style scoped>
-.mouse-area {
-  position: absolute;
-  z-index: 2;
-}
-.mouse-area.default {
-  background-color: #3388ff94;
-  border: 1px solid #38f;
-}
 .pull-down {
   height: 100%;
   display: flex;
@@ -1092,9 +829,6 @@ export default {
   position: relative;
   z-index: 2;
 }
-.virtual-top-container.anim {
-  transition: height 0.2s;
-}
 .virtual-list {
   overflow-x: hidden;
   width: 100%;
@@ -1116,9 +850,6 @@ export default {
   top: 0;
   z-index: 0;
   position: absolute;
-}
-.virtual-list-container.anim {
-  transition: transform 0.2s;
 }
 .virtual-item-group.flex {
   display: flex;

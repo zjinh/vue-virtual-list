@@ -1,6 +1,6 @@
 {
   "name": "@zjinh/vue-virtual-list",
-  "version": "1.1.3",
+  "version": "1.1.5",
   "author": "zjinh",
   "description": "适用于vue2的虚拟列表，包含鼠标、方向键选择、下拉刷新，滚动加载",
   "main": "dist/index.min.js",

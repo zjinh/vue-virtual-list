@@ -5,7 +5,7 @@ if (typeof window !== 'undefined' && window.Vue) {
 }
 
 virtualList.install = function(Vue){
-    Vue.component(virtualList.name, virtualList)
+    Vue.component('virtualList', virtualList)
 }
 
 export default virtualList;

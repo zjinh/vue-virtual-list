@@ -1,5 +1,6 @@
 /.idea
 /src
 /public
+/utils
 /babel.config.js
 /webpack.config.js
