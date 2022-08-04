@@ -75,7 +75,7 @@ export default {
 |pullDropText|String|松开刷新||下拉状态为drop时提示区的文字|
 |pullLoadingText|String|刷新中...||拉下状态为loading时提示区的文字|
 |底部加载更多|||||
-|scrollEndDistance|Number|0||距离底部多少px时触发加载|
+|scrollEndDistance|Number|10||距离底部多少px时触发加载|
 
 ## 回调事件
 

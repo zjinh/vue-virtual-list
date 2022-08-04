@@ -212,7 +212,7 @@ export default {
     },
     scrollEndDistance: {
       type: Number,
-      default: 0,
+      default: 10,
     },
     //容器高度 100%
     height: {
@@ -530,6 +530,7 @@ export default {
       let element = event.target;
       //当前滚动位置
       let scrollTop = event.target.scrollTop;
+      let scrollHeight= Math.min(element.scrollHeight, parseInt(this.$refs.phantom.style.height))
       //排除不需要计算的情况
       if (force||!this.anchorPoint || scrollTop > this.anchorPoint.bottom || scrollTop < this.anchorPoint.top) {
         //此时的开始索引
@@ -552,18 +553,15 @@ export default {
       if (this.lockScroll) {
         return
       }
-      if (parseInt((element.scrollHeight - scrollTop).toString()) <= element.clientHeight - this.scrollEndDistance) {
+      if ((scrollHeight - scrollTop - this.scrollEndDistance) <= element.clientHeight) {
         this.$emit('scrollDown');
         this.lockScroll=true
         this.unlockScroll()
       }
     },
     unlockScroll() {
-      if (this.lockTimer) {
-        clearTimeout(this.lockTimer)
-      }
       this.lockTimer = setTimeout(() => {
-        this.lockLoad = false;//等待数据更新1000ms后解锁
+        this.lockScroll = false;//等待数据更新1000ms后解锁
         if (this.lockTimer) {
           clearTimeout(this.lockTimer)
         }
