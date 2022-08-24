@@ -530,7 +530,7 @@ export default {
       let element = event.target;
       //当前滚动位置
       let scrollTop = event.target.scrollTop;
-      let scrollHeight= Math.min(element.scrollHeight, parseInt(this.$refs.phantom.style.height))
+      let scrollHeight= Math.min(element.scrollHeight, parseInt(this.$refs.phantom.style.height||'0px'))
       //排除不需要计算的情况
       if (force||!this.anchorPoint || scrollTop > this.anchorPoint.bottom || scrollTop < this.anchorPoint.top) {
         //此时的开始索引
@@ -550,6 +550,9 @@ export default {
       this.scrollingEvent(event, data);
       //防抖处理滚动结束
       this.scrollEnd(event, data);
+      if (scrollHeight<=this.$el.clientHeight) {
+        return;
+      }
       if (this.lockScroll) {
         return
       }
