@@ -33,10 +33,10 @@ export default {
     };
   },
   mounted() {
-    document.documentElement.addEventListener('mousedown', this.handleMouseSelect, true)
+    document.documentElement.addEventListener('mousedown', this.handleMouseSelect)
   },
   beforeDestroy: function () {
-    document.documentElement.removeEventListener('mousedown', this.handleMouseSelect, true)
+    document.documentElement.removeEventListener('mousedown', this.handleMouseSelect)
   },
   methods: {
     handleMouseSelect(event) {
