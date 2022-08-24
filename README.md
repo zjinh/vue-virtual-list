@@ -59,6 +59,7 @@ export default {
 |absoluteHeight|Boolean|false||绝对高度，启用后将不会出现滚动条|
 |bufferScale|Number|1||可见区域外的上/下方预渲染比例，避免快速滑动时闪烁|
 |touchScale|Number|2||手指移动与组件移动距离的比|
+|overFlow|String|auto||Y轴滚动条样式，默认auto|
 |选中功能|||||
 |selectField|String|isSelected||选中所使用的字段|
 |mouseSelect|Boolean|false||鼠标拖拽选择|

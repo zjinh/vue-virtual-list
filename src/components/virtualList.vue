@@ -113,6 +113,13 @@ export default {
         return false;
       },
     },
+    //滚动条模式
+    overFlow:{
+      type:String,
+      default:function (){
+        return 'auto'
+      }
+    },
     //缓冲区比例
     bufferScale: {
       type: Number,
@@ -339,6 +346,7 @@ export default {
     },
     listHeight: function () {
       return {
+        overFlowY: this.overFlow||'auto',
         height: this.absoluteHeight?this.virtualStyle:this.height,
       }
     },
