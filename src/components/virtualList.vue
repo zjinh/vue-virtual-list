@@ -251,6 +251,7 @@ export default {
       //滚动条加载锁
       lockScroll: false,
       lockTimer: null,
+      oldScrollTop: 0
     };
   },
   computed: {
@@ -463,6 +464,7 @@ export default {
       console.log(event, data);
     },
     scrollingEvent(event, data) {
+      this.oldScrollTop=data.scrollTop
       this.$emit('scrollIng', event, data);
     },
     //初始化缓存
@@ -512,7 +514,6 @@ export default {
         if (dValue) {
           this.positions[index].bottom = this.positions[index].bottom - dValue;
           this.positions[index].height = height;
-          this.positions[index].over = true;
           for (let k = index + 1; k < this.positions.length; k++) {
             this.positions[k].top = this.positions[k - 1].bottom;
             this.positions[k].bottom = this.positions[k].bottom - dValue;
@@ -531,7 +532,6 @@ export default {
       }
       this.startOffset = startOffset;
       this.$refs.content.style.transform = `translate3d(0,${startOffset}px,0)`
-      this.lockScroll=false
     },
     //滚动事件
     scrollEvent(event, force=false) {
@@ -549,11 +549,13 @@ export default {
         this.setStartOffset();
       }
       //触发外部滚动事件
+      let direction=scrollTop-this.oldScrollTop>0?'down':'up'
       let data = {
         start: this.start * this.column,
         end: Math.min(this.end * this.column, this.listData.length - 1),
         startOffset: this.startOffset,
         scrollTop,
+        direction
       };
       this.scrollingEvent(event, data);
       //防抖处理滚动结束
@@ -564,7 +566,7 @@ export default {
       if (this.lockScroll) {
         return
       }
-      if ((scrollHeight - scrollTop - this.scrollEndDistance) <= element.clientHeight) {
+      if (((scrollHeight - scrollTop - this.scrollEndDistance) <= element.clientHeight)&&direction==='down') {
         this.$emit('scrollDown');
         this.lockScroll=true
         this.unlockScroll()
