@@ -402,6 +402,10 @@ export default {
     }
     //列表数据长度不等于缓存长度
     if (this._listData.length !== this.positions.length) {
+      this.lockScroll=false
+      if (this.lockTimer) {
+        clearTimeout(this.lockTimer)
+      }
       this.initPositions();
     }
     this.$nextTick(function () {
