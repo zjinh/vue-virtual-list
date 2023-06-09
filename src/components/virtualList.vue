@@ -49,6 +49,16 @@
 <script>
 import Vue from "vue"
 import selectRegion from "./selectRegion.vue";
+if(!window.sleep){
+  window.sleep=function (time=1000){
+    return new Promise((resolve) => {
+      let a=setTimeout(() => {
+        resolve(1)
+        clearTimeout(a)
+      }, time)
+    })
+  }
+}
 const _ ={
   debounce(func, wait = 50, immediate = false) {
     let timer = null;
@@ -79,7 +89,6 @@ const _ ={
     return debounced;
   }
 };
-let version=require("../../package.json").version
 export default {
   name: 'virtualList',
   components: {
@@ -251,7 +260,9 @@ export default {
       //滚动条加载锁
       lockScroll: false,
       lockTimer: null,
-      oldScrollTop: 0
+      oldScrollTop: 0,
+      preventAutoScroll: false,
+      lastDirection: ''
     };
   },
   computed: {
@@ -347,7 +358,6 @@ export default {
     },
     listHeight: function () {
       return {
-        overFlowY: this.overFlow||'auto',
         height: this.absoluteHeight?this.virtualStyle:this.height,
       }
     },
@@ -357,6 +367,9 @@ export default {
     this.scrollEnd = _.debounce((event, data) => {
       this.$emit('scrollEnd', event, data);
     }, 100);
+    this.windowResize= _.debounce(() => {
+        this.handleResize()
+    })
   },
   mounted() {
     this.$nextTick(() => {
@@ -402,18 +415,19 @@ export default {
     }
     //列表数据长度不等于缓存长度
     if (this._listData.length !== this.positions.length) {
+      this.initPositions();
       this.lockScroll=false
       if (this.lockTimer) {
         clearTimeout(this.lockTimer)
       }
-      this.initPositions();
     }
     this.$nextTick(function () {
       let items = this.$refs.items;
       if (!items || !items.length) {
-        this.$refs.phantom.style.height = '0px'
+        this.$refs.phantom.style.height = this.absoluteHeight?this.virtualStyle:'0px'
         return;
       }
+      this.getSizeInfo()
       //获取真实元素大小，修改对应的尺寸缓存
       this.updateItemsSize();
       let height = this.positions[this.positions.length - 1].bottom;
@@ -438,18 +452,19 @@ export default {
       this.renderCallback()
       this.setStartOffset();
     },
-    windowResize() {
-      this.getSizeInfo()
-      if (this.itemWidth) {
-        let count = Math.floor(this.$el.offsetWidth / this.itemWidth);
-        this.column = Math.max(1, count);
-      }
-      this.renderCallback()
-      this.$nextTick(() => {
-        this.scrollEvent({
-          target: this.$el
-        }, true)
-      })
+    windowResize() {},
+    handleResize() {
+        this.getSizeInfo()
+        if (this.itemWidth) {
+            let count = Math.floor(this.$el.offsetWidth / this.itemWidth);
+            this.column = Math.max(1, count);
+        }
+        this.renderCallback()
+        this.$nextTick(() => {
+            this.scrollEvent({
+                target: this.$el
+            }, true)
+        })
     },
     renderConfigChange(calcSize=false) {
       if (!this.itemWidth) {
@@ -458,18 +473,22 @@ export default {
       if (calcSize) {
         this.initPositions()
       }
-      this.windowResize()
+      this.handleResize()
     },
     getSizeInfo() {
-      this.screenHeight = this.$el.clientHeight||this.$el.parentNode.clientHeight;
+        try {
+            let height=Math.max(this.$el.clientHeight, -1)
+            this.screenHeight = height>0?height:(this.$el.parentNode?this.$el.parentNode.clientHeight:0)//||this.absoluteHeight?parseInt(this.virtualStyle):this.height;
+        } catch (e) {
+            this.screenHeight=0
+        }
     },
     //防抖处理，设置滚动状态
     scrollEnd(event, data) {
-      console.log(event, data);
     },
     scrollingEvent(event, data) {
       this.oldScrollTop=data.scrollTop
-      this.$emit('scrollIng', event, data);
+      this.$emit('scrolling', event, data);
     },
     //初始化缓存
     initPositions() {
@@ -535,14 +554,16 @@ export default {
         startOffset = 0;
       }
       this.startOffset = startOffset;
-      this.$refs.content.style.transform = `translate3d(0,${startOffset}px,0)`
+      if (this.$refs.content) {
+        this.$refs.content.style.transform = `translate3d(0,${startOffset}px,0)`
+      }
     },
     //滚动事件
     scrollEvent(event, force=false) {
       let element = event.target;
       //当前滚动位置
       let scrollTop = event.target.scrollTop;
-      let scrollHeight= Math.min(element.scrollHeight, parseInt(this.$refs.phantom.style.height||'0px'))
+      let scrollHeight= Math.max(element.scrollHeight, parseInt(this.$refs.phantom?this.$refs.phantom.style.height:'0px'))
       //排除不需要计算的情况
       if (force||!this.anchorPoint || scrollTop > this.anchorPoint.bottom || scrollTop < this.anchorPoint.top) {
         //此时的开始索引
@@ -553,7 +574,7 @@ export default {
         this.setStartOffset();
       }
       //触发外部滚动事件
-      let direction=scrollTop-this.oldScrollTop>0?'down':'up'
+      let direction=(scrollTop-this.oldScrollTop>=0)?'down':'up'
       let data = {
         start: this.start * this.column,
         end: Math.min(this.end * this.column, this.listData.length - 1),
@@ -561,6 +582,10 @@ export default {
         scrollTop,
         direction
       };
+      if (this.oldScrollTop&&this.lastDirection&&this.lastDirection!==direction) {
+          this.preventAutoScroll=true//忽略自动滚动
+      }
+      this.lastDirection=direction
       this.scrollingEvent(event, data);
       //防抖处理滚动结束
       this.scrollEnd(event, data);
@@ -579,6 +604,7 @@ export default {
     unlockScroll() {
       this.lockTimer = setTimeout(() => {
         this.lockScroll = false;//等待数据更新1000ms后解锁
+        this.preventAutoScroll=false
         if (this.lockTimer) {
           clearTimeout(this.lockTimer)
         }
@@ -766,25 +792,43 @@ export default {
       return result;
     },
     //滚动到指定位置
-    scrollTo(index = 0) {
+    async scrollTo(index = 0, first=true) {
       if (index<0) {
         return
       }
-      let listIndex = index
-      if (this.itemWidth) {
-        listIndex = Math.max(Math.abs(index / this.column) - 1, 0)
-      } else {
-        listIndex = index > this._listData.length ? Math.abs(index / this._listData.length) : index
+      if (this.preventAutoScroll) {
+        return;
       }
-      let scrollTop=this.itemHeight * listIndex
-      this.$el.scrollTo({
-        left: 0,
-        top: scrollTop,
-        behavior: 'smooth'
+      if (first) {
+          await sleep(200)
+      }
+      let listIndex = index
+      let scrollTop=0
+      if (this.itemWidth) {
+        listIndex = Math.floor(Math.max(Math.abs(index / this.column), 0))
+      } else {
+        listIndex = Math.min(index, this._listData.length-1)
+      }
+      scrollTop=this.positions[listIndex].top
+      scrollTop=Math.floor(scrollTop)
+      this.$nextTick(async () => {
+        this.$el.scrollTo({
+          left: 0,
+          top: scrollTop,
+          behavior: 'smooth'
+        })
+        this.scrollEvent({
+            target: this.$el
+        }, true)
+        await sleep(500)
+        let currentScrollTop=Math.floor(this.$el.scrollTop)
+        let diff=Math.abs(currentScrollTop-scrollTop)>2
+        if (currentScrollTop!==scrollTop&&!this.lockScroll) {
+            if (diff) {
+                this.scrollTo(index, false)
+            }
+        }
       })
-      this.scrollEvent({
-        target: this.$el
-      }, true)
     },
     renderCallback() {
       this.$emit("callback", {
