@@ -35,13 +35,13 @@ export default {
   mounted() {
     document.documentElement.addEventListener('mousedown', this.handleMouseSelect)
   },
-  beforeDestroy: function () {
+  beforeDestroy: function() {
     document.documentElement.removeEventListener('mousedown', this.handleMouseSelect)
   },
   methods: {
     handleMouseSelect(event) {
       let area = this.regionArea;
-      this.areaInfo = area.getBoundingClientRect()
+      this.areaInfo=area.getBoundingClientRect()
       let start = {
         x: event.clientX - this.areaInfo.left + area.scrollLeft,
         y: event.clientY - this.areaInfo.top + area.scrollTop,
@@ -56,11 +56,11 @@ export default {
           height: '0',
         };
         document.onmousemove = null;
-        document.onmousewheel = null
+        document.onmousewheel=null
         document.onmousedown = null;
         this.showMouseSelect = false;
         let a = setTimeout(() => {
-          this.dragging = false
+          this.dragging=false
           this.$emit('dragging', false)
           clearTimeout(a)
         }, 200)
@@ -68,7 +68,7 @@ export default {
       document.onmousemove = (ev) => {
         if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.buttons === 2) return;
         if (!this.dragging) {
-          this.dragging = true
+          this.dragging=true
           this.$emit('dragging', true)
         }
         this.showMouseSelect = true;

@@ -1,5 +1,5 @@
 <template>
-  <section ref="list" :data-version="version" :data-w="itemWidth" :data-h="itemHeight" :style="listHeight" class="virtual-list" @scroll="scrollEvent($event)">
+  <section ref="list" :data-version="version" :data-w="itemWidth" :data-h="itemHeight" :style="listHeight" class="virtual-list" :class="{ 'y-scrollbar-visible': yScrollbarVisible }" @scroll="scrollEvent($event)">
     <!--撑开滚动条的容器-->
     <div ref="phantom" class="virtual-list-phantom"></div>
     <!--顶部下拉区域-->
@@ -122,13 +122,6 @@ export default {
         return false;
       },
     },
-    //滚动条模式
-    overFlow:{
-      type:String,
-      default:function (){
-        return 'auto'
-      }
-    },
     //缓冲区比例
     bufferScale: {
       type: Number,
@@ -238,7 +231,7 @@ export default {
   },
   data() {
     return {
-      version,
+      version: '1.2.3',
       //拖拽状态
       dragState: 'none',
       //当前下拉距离
@@ -262,7 +255,8 @@ export default {
       lockTimer: null,
       oldScrollTop: 0,
       preventAutoScroll: false,
-      lastDirection: ''
+      lastDirection: '',
+      yScrollbarVisible: false // 竖向滚动条是否出现
     };
   },
   computed: {
@@ -385,7 +379,8 @@ export default {
         }, 100)
       }
     })
-    window.addEventListener('resize', this.windowResize);
+    this.resizer = new ResizeObserver(this.windowResize)
+    this.resizer.observe(this.$el)
     //添加拖拽事件
     if (this.enablePullDown) {
       let list = this.$refs.list;
@@ -399,7 +394,7 @@ export default {
   },
   beforeDestroy() {
     Vue.prototype.$virtualList=null
-    window.removeEventListener('resize', this.windowResize);
+    this.resizer.disconnect()
     if (this.enablePullDown) {
       let list = this.$refs.list;
       list.removeEventListener('touchstart', this.touchStartEvent);
@@ -424,14 +419,14 @@ export default {
     this.$nextTick(function () {
       let items = this.$refs.items;
       if (!items || !items.length) {
-        this.$refs.phantom.style.height = this.absoluteHeight?this.virtualStyle:'0px'
+        this.updatePhantomStyle(this.absoluteHeight?this.virtualStyle:'0px')
         return;
       }
       this.getSizeInfo()
       //获取真实元素大小，修改对应的尺寸缓存
       this.updateItemsSize();
       let height = this.positions[this.positions.length - 1].bottom;
-      this.$refs.phantom.style.height = height + 'px'
+      this.updatePhantomStyle(height + 'px')
       //更新真实偏移量
       this.setStartOffset()
     });
@@ -442,6 +437,8 @@ export default {
     },
     listHeight: function () {
       this.renderConfigChange()
+
+      this.updateScrollbarVisible()
     },
   },
   methods: {
@@ -560,6 +557,7 @@ export default {
     },
     //滚动事件
     scrollEvent(event, force=false) {
+      this.$emit('scroll', event)
       let element = event.target;
       //当前滚动位置
       let scrollTop = event.target.scrollTop;
@@ -836,6 +834,15 @@ export default {
         end: this.end,
         start: this.start
       })
+    },
+
+    updatePhantomStyle(height) {
+      this.$refs.phantom.style.height = height
+
+      this.updateScrollbarVisible()
+    },
+    updateScrollbarVisible() {
+      this.yScrollbarVisible = this.$refs.content.offsetHeight > this.$el.clientHeight
     }
   },
 };
