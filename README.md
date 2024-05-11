@@ -50,16 +50,18 @@ export default {
 
 ## props参数
 
-|参数|类型|默认值|必填|说明|
-|:--:|:--:|:--:|:--:|:--|
-|listData|Array|[]|✓|列表数据|
-|itemWidth|Number|0||元素的宽度|
-|itemHeight|Number|0|✓|元素的最小高度（支持动态高度）|
-|height|String|100%||列表的高度。|
-|absoluteHeight|Boolean|false||绝对高度，启用后将不会出现滚动条|
-|bufferScale|Number|1||可见区域外的上/下方预渲染比例，避免快速滑动时闪烁|
-|touchScale|Number|2||手指移动与组件移动距离的比|
-|overFlow|String|auto||Y轴滚动条样式，默认auto|
+|参数|类型|  默认值  |必填| 说明                        |
+|:--:|:--:|:-----:|:--:|:--------------------------|
+|listData|Array|  []   |✓| 列表数据                      |
+|itemWidth|Number|   0   || 元素的宽度                     |
+|itemHeight|Number|   0   |✓| 元素的最小高度（支持动态高度）           |
+|height|String| 100%  || 列表的高度。                    |
+|absoluteHeight|Boolean| false || 绝对高度，启用后将不会出现滚动条          |
+|bufferScale|Number|   1   || 可见区域外的上/下方预渲染比例，避免快速滑动时闪烁 |
+|touchScale|Number|   2   || 手指移动与组件移动距离的比             |
+|overFlow|String| auto  || Y轴滚动条样式，默认auto            |
+|listenLazyLoad|Boolean| false || 监听懒加载，默认false             |
+
 |选中功能|||||
 |selectField|String|isSelected||选中所使用的字段|
 |mouseSelect|Boolean|false||鼠标拖拽选择|

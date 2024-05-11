@@ -30,14 +30,14 @@
     <div ref="content" class="virtual-list-container">
       <div ref="items" class="virtual-item-group" :class="{flex:column!==1}" :id="row._key" :key="row._key" v-for="(row) in renderListData">
         <template v-for="(item, col_index) in row.value">
-          <div class="virtual-item" :key="row._key + '-' + col_index" :data-index="item._index" :data-show="row._index>=start&&row._index<=end">
+          <div class="virtual-item w" :key="row._key + '-' + col_index" :data-index="item._index" :data-show="row._index>=start&&row._index<=end">
             <slot name="default" :item="item" :index="item._index" :select="activeGroupPosition(item, item._index)"></slot>
           </div>
         </template>
-        <!--空占位-->
-        <template v-if="row.value.length < column">
-          <div v-for="index in column - (row.value.length % column)" class="virtual-item" :key="'empty-' + index"></div>
-        </template>
+        <!--        &lt;!&ndash;空占位&ndash;&gt;
+                <template v-if="row.value.length < column">
+                  <div v-for="index in column - (row.value.length % column)" class="virtual-item w" :key="'empty-' + index"></div>
+                </template>-->
       </div>
     </div>
     <!--底部插槽-->
@@ -228,10 +228,17 @@ export default {
       type: String,
       default: '100%',
     },
+    //监听懒加载
+    listenLazyLoad: {
+      type: Boolean,
+      default: function () {
+        return false
+      }
+    }
   },
   data() {
     return {
-      version: '1.2.3',
+      version: '1.2.4',
       //拖拽状态
       dragState: 'none',
       //当前下拉距离
@@ -256,7 +263,8 @@ export default {
       oldScrollTop: 0,
       preventAutoScroll: false,
       lastDirection: '',
-      yScrollbarVisible: false // 竖向滚动条是否出现
+      yScrollbarVisible: false, // 竖向滚动条是否出现
+      styleObj: null
     };
   },
   computed: {
@@ -362,14 +370,18 @@ export default {
       this.$emit('scrollEnd', event, data);
     }, 100);
     this.windowResize= _.debounce(() => {
-        this.handleResize()
+      this.handleResize()
     })
+    this.lazyLoadChange=_.debounce(() => {
+      this.afterRenderUpdated()
+    }, 200)
   },
   mounted() {
     this.$nextTick(() => {
       Vue.prototype.$virtualList=this
       if (this.itemWidth) {
         this.windowResize();
+        this.checkStyleObj()
       }
       this.startRender()
       if (!this.screenHeight) {
@@ -379,6 +391,9 @@ export default {
         }, 100)
       }
     })
+    if (this.listenLazyLoad&&this.$Lazyload) {
+      this.$Lazyload.$on('loaded', this.lazyLoadChange)
+    }
     this.resizer = new ResizeObserver(this.windowResize)
     this.resizer.observe(this.$el)
     //添加拖拽事件
@@ -403,6 +418,12 @@ export default {
     }
     if (this.arrowSelect) {
     }
+    if (this.listenLazyLoad&&this.$Lazyload) {
+      this.$Lazyload.$off('loaded', this.lazyLoadChange)
+    }
+    if (this.styleObj) {
+      this.styleObj.remove()
+    }
   },
   updated() {
     if (this.dragState !== 'none') {
@@ -411,25 +432,9 @@ export default {
     //列表数据长度不等于缓存长度
     if (this._listData.length !== this.positions.length) {
       this.initPositions();
-      this.lockScroll=false
-      if (this.lockTimer) {
-        clearTimeout(this.lockTimer)
-      }
+      this.unlockScroll()
     }
-    this.$nextTick(function () {
-      let items = this.$refs.items;
-      if (!items || !items.length) {
-        this.updatePhantomStyle(this.absoluteHeight?this.virtualStyle:'0px')
-        return;
-      }
-      this.getSizeInfo()
-      //获取真实元素大小，修改对应的尺寸缓存
-      this.updateItemsSize();
-      let height = this.positions[this.positions.length - 1].bottom;
-      this.updatePhantomStyle(height + 'px')
-      //更新真实偏移量
-      this.setStartOffset()
-    });
+    this.afterRenderUpdated()
   },
   watch: {
     itemWidth: function() {
@@ -442,6 +447,19 @@ export default {
     },
   },
   methods: {
+    checkStyleObj() {
+      if (!this.styleObj) {
+        this.styleObj=document.createElement('style')
+        this.styleObj.style.display='none'
+        this.$el.appendChild(this.styleObj)
+      }
+      let scoped=Object.keys(this.$refs.content.dataset)
+      let stylText=''
+      for (let key of scoped) {
+        stylText+=`.virtual-item[data-${key}].w{width:${this.itemWidth}px;}\n`
+      }
+      this.styleObj.innerText=stylText
+    },
     startRender() {
       this.getSizeInfo()
       this.start = 0;
@@ -451,17 +469,13 @@ export default {
     },
     windowResize() {},
     handleResize() {
-        this.getSizeInfo()
-        if (this.itemWidth) {
-            let count = Math.floor(this.$el.offsetWidth / this.itemWidth);
-            this.column = Math.max(1, count);
-        }
-        this.renderCallback()
-        this.$nextTick(() => {
-            this.scrollEvent({
-                target: this.$el
-            }, true)
-        })
+      this.getSizeInfo()
+      this.renderCallback()
+      this.$nextTick(() => {
+        this.scrollEvent({
+          target: this.$el
+        }, true)
+      })
     },
     renderConfigChange(calcSize=false) {
       if (!this.itemWidth) {
@@ -469,16 +483,38 @@ export default {
       }
       if (calcSize) {
         this.initPositions()
+        this.checkStyleObj()
       }
       this.handleResize()
     },
     getSizeInfo() {
-        try {
-            let height=Math.max(this.$el.clientHeight, -1)
-            this.screenHeight = height>0?height:(this.$el.parentNode?this.$el.parentNode.clientHeight:0)//||this.absoluteHeight?parseInt(this.virtualStyle):this.height;
-        } catch (e) {
-            this.screenHeight=0
+      try {
+        let height=Math.max(this.$el.clientHeight, -1)
+        this.screenHeight = height>0?height:(this.$el.parentNode?this.$el.parentNode.clientHeight:0)//||this.absoluteHeight?parseInt(this.virtualStyle):this.height;
+        if (this.itemWidth) {
+          let count = Math.floor(this.$el.offsetWidth / this.itemWidth);
+          this.column = Math.max(1, count);
         }
+      } catch (e) {
+        this.screenHeight=0
+      }
+    },
+    //数据变更渲染后重新计算
+    afterRenderUpdated() {
+      this.$nextTick(function () {
+        let items = this.$refs.items;
+        this.getSizeInfo()
+        if (!items || !items.length) {
+          this.updatePhantomStyle(this.absoluteHeight?this.virtualStyle:'0px')
+          return;
+        }
+        //获取真实元素大小，修改对应的尺寸缓存
+        this.updateItemsSize();
+        let height = this.positions[this.positions.length - 1].bottom;
+        this.updatePhantomStyle(height + 'px')
+        //更新真实偏移量
+        this.setStartOffset()
+      });
     },
     //防抖处理，设置滚动状态
     scrollEnd(event, data) {
@@ -487,6 +523,8 @@ export default {
       this.oldScrollTop=data.scrollTop
       this.$emit('scrolling', event, data);
     },
+    //图片懒加载成功后
+    lazyLoadChange() {},
     //初始化缓存
     initPositions() {
       this.positions = this._listData.map((d, index) => ({
@@ -544,11 +582,15 @@ export default {
     //更新偏移量
     setStartOffset() {
       let startOffset;
-      if (this.start >= 1) {
-        let size = this.positions[this.start].top - (this.positions[this.start - this.aboveCount] ? this.positions[this.start - this.aboveCount].top : 0);
-        startOffset = this.positions[this.start - 1].bottom - size;
-      } else {
-        startOffset = 0;
+      try {
+        if (this.start >= 1) {
+          let size = this.positions[this.start].top - (this.positions[this.start - this.aboveCount] ? this.positions[this.start - this.aboveCount].top : 0);
+          startOffset = this.positions[this.start - 1].bottom - size;
+        } else {
+          startOffset = 0;
+        }
+      } catch (e) {
+        startOffset=0
       }
       this.startOffset = startOffset;
       if (this.$refs.content) {
@@ -581,7 +623,7 @@ export default {
         direction
       };
       if (this.oldScrollTop&&this.lastDirection&&this.lastDirection!==direction) {
-          this.preventAutoScroll=true//忽略自动滚动
+        this.preventAutoScroll=true//忽略自动滚动
       }
       this.lastDirection=direction
       this.scrollingEvent(event, data);
@@ -798,7 +840,7 @@ export default {
         return;
       }
       if (first) {
-          await sleep(200)
+        await sleep(200)
       }
       let listIndex = index
       let scrollTop=0
@@ -807,8 +849,12 @@ export default {
       } else {
         listIndex = Math.min(index, this._listData.length-1)
       }
-      scrollTop=this.positions[listIndex].top
-      scrollTop=Math.floor(scrollTop)
+      try {
+        scrollTop=this.positions[listIndex].top
+        scrollTop=Math.floor(scrollTop)
+      } catch (e) {
+        scrollTop=0
+      }
       this.$nextTick(async () => {
         this.$el.scrollTo({
           left: 0,
@@ -816,15 +862,17 @@ export default {
           behavior: 'smooth'
         })
         this.scrollEvent({
-            target: this.$el
+          target: this.$el
         }, true)
         await sleep(500)
         let currentScrollTop=Math.floor(this.$el.scrollTop)
         let diff=Math.abs(currentScrollTop-scrollTop)>2
         if (currentScrollTop!==scrollTop&&!this.lockScroll) {
-            if (diff) {
-                this.scrollTo(index, false)
-            }
+          if (diff) {
+            this.scrollTo(index, false)
+          }
+        } else if (currentScrollTop===scrollTop) {
+          this.unlockScroll()
         }
       })
     },
@@ -919,11 +967,5 @@ export default {
 }
 .virtual-item-group.flex {
   display: flex;
-}
-.virtual-item-group > .virtual-item {
-  margin-right: auto;
-}
-.virtual-item {
-  flex: 1;
 }
 </style>
