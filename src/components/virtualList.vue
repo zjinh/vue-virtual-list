@@ -1,5 +1,5 @@
 <template>
-  <section ref="list" :data-version="version" :data-w="itemWidth" :data-h="itemHeight" :style="listHeight" class="virtual-list" :class="{ 'y-scrollbar-visible': yScrollbarVisible }" @scroll="scrollEvent($event)">
+  <section ref="list" :data-version="version" :data-w="itemWidth" :data-h="itemHeight" :style="listHeight" class="virtual-list" :class="[{ 'y-scrollbar-visible': yScrollbarVisible },randomClass]" @scroll="scrollEvent($event)">
     <!--撑开滚动条的容器-->
     <div ref="phantom" class="virtual-list-phantom"></div>
     <!--顶部下拉区域-->
@@ -87,8 +87,19 @@ const _ ={
       timer = null;
     };
     return debounced;
+  },
+  randomString(len) {
+    len = len || 32;
+    let $chars = 'ABCDEFGHJKMNPQRSTWXYZabcdefhijkmnprstwxyz2345678';    /****默认去掉了容易混淆的字符oOLl,9gq,Vv,Uu,I1****/
+    let maxPos = $chars.length;
+    let pwd = '';
+    for (let i = 0; i < len; i++) {
+      pwd += $chars.charAt(Math.floor(Math.random() * maxPos));
+    }
+    return pwd;
   }
 };
+let scrollTopCache=0
 export default {
   name: 'virtualList',
   components: {
@@ -238,7 +249,7 @@ export default {
   },
   data() {
     return {
-      version: '1.2.4',
+      version: '1.2.5',
       //拖拽状态
       dragState: 'none',
       //当前下拉距离
@@ -250,7 +261,7 @@ export default {
       //结束索引
       end: 0,
       //多少列
-      column: 1,
+      column: 0,
       //位置信息
       positions: [],
       //偏移量
@@ -264,34 +275,46 @@ export default {
       preventAutoScroll: false,
       lastDirection: '',
       yScrollbarVisible: false, // 竖向滚动条是否出现
-      styleObj: null
+      styleObj: null,
+      randomClass: 'virtual_'+_.randomString('5').toLowerCase(),
+      ready: false,
+      //配置变更控制
+      configChange: false,
+      configChangeTimer: null,
+      active: true
     };
+  },
+  activated() {
+    if (this.$refs.content) {
+      this.$refs.list.scrollTop=scrollTopCache
+      let height = this.positions[this.positions.length - 1].bottom;
+      this.updatePhantomStyle(height + 'px')
+      this.$refs.content.style.transform = `translate3d(0,${this.startOffset}px,0)`
+    }
+    this.active=true
+  },
+  deactivated() {
+    this.active=false
   },
   computed: {
     _listData() {
+      if (this.column===0||!this.ready) {
+        return []
+      }
       return this.listData.reduce((init, cur, index) => {
         let item = cur;
-        item._index = index;
-        if (index % this.column === 0) {
+        item._index=index
+        if (index % this.column === 0||index===0) {
           init.push({
             // _转换后的索引_第一项在原列表中的索引_本行包含几列
-            _key: `_${index / this.column}_${index}_${this.column}`,
+            _key: `_${index===0?0:index / this.column}_${index}_${this.column}`,
             _startIndex: index,
-            _index: init.length,
-            value: [item],
+            value: [],
           });
-        } else {
-          let dataIndex=Math.max(0, init.length - 1)
-          if (init[dataIndex]) {
-            init[dataIndex].value.push(item);
-          } else {
-            init[dataIndex]={
-              value: []
-            }
-            init[dataIndex].value.push(item);
-          }
-          init[dataIndex]._endIndex=index;
         }
+        let dataIndex=Math.max(0, init.length - 1)
+        init[dataIndex].value.push(item);
+        init[dataIndex]._endIndex=index;
         return init;
       }, []);
     },
@@ -365,9 +388,13 @@ export default {
     },
   },
   created() {
-    this.initPositions();
+    if (this.itemWidth<=0) {
+      this.column=1
+    }
     this.scrollEnd = _.debounce((event, data) => {
-      this.$emit('scrollEnd', event, data);
+      if (this.active) {
+        this.$emit('scrollEnd', event, data);
+      }
     }, 100);
     this.windowResize= _.debounce(() => {
       this.handleResize()
@@ -378,6 +405,8 @@ export default {
   },
   mounted() {
     this.$nextTick(() => {
+      this.ready=true
+      this.initPositions();
       Vue.prototype.$virtualList=this
       if (this.itemWidth) {
         this.windowResize();
@@ -391,7 +420,7 @@ export default {
         }, 100)
       }
     })
-    if (this.listenLazyLoad&&this.$Lazyload) {
+    if (this.listenLazyLoad) {
       this.$Lazyload.$on('loaded', this.lazyLoadChange)
     }
     this.resizer = new ResizeObserver(this.windowResize)
@@ -408,6 +437,7 @@ export default {
     }
   },
   beforeDestroy() {
+    scrollTopCache=0
     Vue.prototype.$virtualList=null
     this.resizer.disconnect()
     if (this.enablePullDown) {
@@ -424,13 +454,14 @@ export default {
     if (this.styleObj) {
       this.styleObj.remove()
     }
+    this.cleanConfigTimer()
   },
   updated() {
-    if (this.dragState !== 'none') {
+    if (this.dragState !== 'none'&&!this.active) {
       return;
     }
     //列表数据长度不等于缓存长度
-    if (this._listData.length !== this.positions.length) {
+    if (this._listData.length !== this.positions.length||this.configChange) {
       this.initPositions();
       this.unlockScroll()
     }
@@ -456,7 +487,7 @@ export default {
       let scoped=Object.keys(this.$refs.content.dataset)
       let stylText=''
       for (let key of scoped) {
-        stylText+=`.virtual-item[data-${key}].w{width:${this.itemWidth}px;}\n`
+        stylText+=`.${this.randomClass} .virtual-item[data-${key}].w{width:${this.itemWidth}px;}`
       }
       this.styleObj.innerText=stylText
     },
@@ -469,6 +500,13 @@ export default {
     },
     windowResize() {},
     handleResize() {
+      if (!this.active) {
+        return
+      }
+      if (!this.$el.offsetHeight) {
+        this.preventAutoScroll=false//忽略自动滚动
+        return;
+      }
       this.getSizeInfo()
       this.renderCallback()
       this.$nextTick(() => {
@@ -521,18 +559,24 @@ export default {
     },
     scrollingEvent(event, data) {
       this.oldScrollTop=data.scrollTop
-      this.$emit('scrolling', event, data);
+      if (this.active) {
+        this.$emit('scrolling', event, data);
+      }
     },
     //图片懒加载成功后
     lazyLoadChange() {},
     //初始化缓存
     initPositions() {
-      this.positions = this._listData.map((d, index) => ({
-        index,
-        height: this.itemHeight,
-        top: index * this.itemHeight,
-        bottom: (index + 1) * this.itemHeight,
-      }));
+      let list=[]
+      for (let index=0; index<this._listData.length; index++) {
+        list.push({
+          index,
+          height: this.itemHeight,
+          top: index * this.itemHeight,
+          bottom: (index + 1) * this.itemHeight,
+        })
+      }
+      this.positions = list
     },
     //获取列表起始索引
     getStartIndex(scrollTop = 0) {
@@ -597,13 +641,19 @@ export default {
         this.$refs.content.style.transform = `translate3d(0,${startOffset}px,0)`
       }
     },
+    getScrollHeight() {
+      return parseInt(this.$refs.phantom?this.$refs.phantom.style.height:'0px')
+    },
     //滚动事件
     scrollEvent(event, force=false) {
-      this.$emit('scroll', event)
       let element = event.target;
       //当前滚动位置
       let scrollTop = event.target.scrollTop;
-      let scrollHeight= Math.max(element.scrollHeight, parseInt(this.$refs.phantom?this.$refs.phantom.style.height:'0px'))
+      if (scrollTopCache!==scrollTop&&this.active) {
+        this.$emit('scroll', event)
+      }
+      scrollTopCache=scrollTop
+      let scrollHeight= this.getScrollHeight()
       //排除不需要计算的情况
       if (force||!this.anchorPoint || scrollTop > this.anchorPoint.bottom || scrollTop < this.anchorPoint.top) {
         //此时的开始索引
@@ -624,6 +674,7 @@ export default {
       };
       if (this.oldScrollTop&&this.lastDirection&&this.lastDirection!==direction) {
         this.preventAutoScroll=true//忽略自动滚动
+        this.unlockScroll()
       }
       this.lastDirection=direction
       this.scrollingEvent(event, data);
@@ -636,11 +687,16 @@ export default {
         return
       }
       if (((scrollHeight - scrollTop - this.scrollEndDistance) <= element.clientHeight)&&direction==='down') {
-        this.$emit('scrollDown');
         this.lockScroll=true
+        this.scrollDownEvent(scrollHeight)
         this.unlockScroll()
       }
     },
+    scrollDownEvent: _.debounce(function (scrollHeight) {
+      if (scrollHeight===this.getScrollHeight()) {
+        this.$emit('scrollDown');
+      }
+    }, 100),
     unlockScroll() {
       this.lockTimer = setTimeout(() => {
         this.lockScroll = false;//等待数据更新1000ms后解锁
@@ -773,7 +829,7 @@ export default {
       let selList = this.$el.querySelectorAll('.virtual-item[data-index]');
       for (let i = 0; i < selList.length; i++) {
         let elm = selList[i];
-        let index = elm.dataset.index;
+        let index = Number(elm.dataset.index);
         if (this.accuratePosition) {
           elm=elm.children[0]||elm
         }
@@ -832,7 +888,7 @@ export default {
       return result;
     },
     //滚动到指定位置
-    async scrollTo(index = 0, first=true) {
+    async scrollTo(index = 0, anim=true,  first=true) {
       if (index<0) {
         return
       }
@@ -844,13 +900,14 @@ export default {
       }
       let listIndex = index
       let scrollTop=0
+      let currentScrollHeight=this.getScrollHeight()
       if (this.itemWidth) {
         listIndex = Math.floor(Math.max(Math.abs(index / this.column), 0))
       } else {
         listIndex = Math.min(index, this._listData.length-1)
       }
       try {
-        scrollTop=this.positions[listIndex].top
+        scrollTop=this.positions[listIndex].bottom
         scrollTop=Math.floor(scrollTop)
       } catch (e) {
         scrollTop=0
@@ -859,17 +916,21 @@ export default {
         this.$el.scrollTo({
           left: 0,
           top: scrollTop,
-          behavior: 'smooth'
+          behavior: anim?'smooth':'auto'
         })
         this.scrollEvent({
           target: this.$el
         }, true)
         await sleep(500)
+        if (this.getScrollHeight()!==currentScrollHeight) {
+          this.scrollTo(index, anim, false)
+          return
+        }
         let currentScrollTop=Math.floor(this.$el.scrollTop)
         let diff=Math.abs(currentScrollTop-scrollTop)>2
         if (currentScrollTop!==scrollTop&&!this.lockScroll) {
           if (diff) {
-            this.scrollTo(index, false)
+            this.scrollTo(index, anim, false)
           }
         } else if (currentScrollTop===scrollTop) {
           this.unlockScroll()
@@ -883,7 +944,10 @@ export default {
         start: this.start
       })
     },
-
+    cleanConfigTimer() {
+      this.configChangeTimer&&clearTimeout(this.configChangeTimer)
+      this.configChangeTimer=null
+    },
     updatePhantomStyle(height) {
       this.$refs.phantom.style.height = height
 
