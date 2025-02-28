@@ -1,41 +1,33 @@
 {
   "name": "@zjinh/vue-virtual-list",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "author": "zjinh",
-  "description": "适用于vue2的虚拟列表，包含鼠标、方向键选择、下拉刷新，滚动加载",
-  "main": "dist/index.min.js",
+  "description": "适用于vue2/vue3的虚拟列表，包含鼠标、方向键选择、下拉刷新，滚动加载",
+  "main": "dist/vue-virtual-list.umd.js",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
-  "dependencies": {
-    "vue": "^2.6.10"
-  },
   "devDependencies": {
-    "@vue/babel-preset-app": "^4.0.2",
-    "babel-eslint": "^10.0.1",
-    "babel-loader": "^8.0.6",
-    "css-loader": "^3.2.0",
-    "scss-loader": "0.0.1",
-    "style-loader": "^1.0.0",
-    "uglifyjs-webpack-plugin": "^2.2.0",
-    "url-loader": "^2.2.0",
-    "vue-loader": "^15.7.1",
-    "vue-template-compiler": "^2.6.10",
-    "webpack": "^4.41.2",
-    "webpack-cli": "^3.3.9",
-    "webpack-dev-server": "^3.7.2"
+    "@vitejs/plugin-vue2": "^2.3.3",
+    "sass": "^1.85.0",
+    "ts-loader": "^8.0.1",
+    "typescript": "~4.1.5",
+    "vite": "^6.1.0",
+    "vite-plugin-html": "^3.2.2",
+    "vue": "2.7.16"
   },
   "scripts": {
-    "start": "webpack-dev-server --hot --inline",
-    "build": "webpack --display-error-details --config webpack.config.js"
+    "dev": "vite dev",
+    "build": "vite build --mode lib"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/zjinh/vue-virtual-list.git"
   },
   "keywords": [
-    "vue",
+    "vue2",
+    "vue3",
     "virtual-list"
   ],
   "license": "ISC",

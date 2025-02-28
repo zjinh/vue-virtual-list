@@ -1,7 +1,7 @@
 
 # vue-virtual-list
 
-一个基于Vue2.6+的虚拟列表组件，支持动态高度。
+一个支持vue2.7/vue3.x虚拟列表组件，支持动态高度。
 鼠标拖拽、方向键选择
 
 ## 安装
@@ -14,6 +14,8 @@ npm install @zjinh/vue-virtual-list --save
 
 ```js
 import virtualList from '@zjinh/vue-virtual-list';
+import '@zjinh/vue-virtual-list/dist/vue-virtual-list.css';
+
 Vue.use(virtualList);
 
 export default {
@@ -60,7 +62,6 @@ export default {
 |bufferScale|Number|   1   || 可见区域外的上/下方预渲染比例，避免快速滑动时闪烁 |
 |touchScale|Number|   2   || 手指移动与组件移动距离的比             |
 |overFlow|String| auto  || Y轴滚动条样式，默认auto            |
-|listenLazyLoad|Boolean| false || 监听懒加载，默认false             |
 
 |选中功能|||||
 |selectField|String|isSelected||选中所使用的字段|
@@ -69,14 +70,6 @@ export default {
 |dragging|Boolean|false||是否正在拖拽，必须使用sync修饰符|
 |accuratePosition|Boolean|true||拖拽时是否精确元素位置|
 |calcGroupSelect|Boolean|false||计算相邻选中起始（仅在itemWidth为0的情况下有效）|
-|下拉刷新功能|||||
-|enablePullDown|Boolean|false||是否开启下拉功能|
-|pullDistance|Number|70||触发下拉回调阈值|
-|maxDistance|Number|70||最大下拉距离，若为 0 则不限制|
-|pullTextColor|String|#000||下拉文本颜色|
-|pullingText|String|下拉刷新||下拉状态为pull时提示区的文字|
-|pullDropText|String|松开刷新||下拉状态为drop时提示区的文字|
-|pullLoadingText|String|刷新中...||拉下状态为loading时提示区的文字|
 |底部加载更多|||||
 |scrollEndDistance|Number|10||距离底部多少px时触发加载|
 
@@ -91,25 +84,15 @@ export default {
 |pullDown||下拉刷新触发的回调|
 |callback|data|渲染回调|
 
-## 下拉状态说明
-
-|状态|说明|
-|:--:|:--|
-|pull|开始拖拽，距离未达到pullDistance|
-|drop|距离达到 pullDistance 触发 pullDown|
-|loading|已被释放，pullDown 已经执行|
-|none|刷新完成或未触发刷新动作|
-
 ## 方法
 
 |方法|说明|
 |:--:|:--|
-|this.$virtualList.scrollTo|滚动到指定数据下标的位置|
+|scrollTo|滚动到指定数据下标的位置|
 
 ## 插槽
 
 |名称|说明|插槽Prop|
 |:--:|:--:|:--|
 |default|默认插槽|item:列表项当前数据<br>index:数据索引<br>select:数据选中的起始|
-|before|顶部下拉插槽|state:下拉状态<br>distance:下拉距离|
 |after|底部插槽|无|

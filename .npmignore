@@ -2,5 +2,8 @@
 /src
 /public
 /utils
-/babel.config.js
 /webpack.config.js
+/index.html
+/pnpm-lock.yaml
+/vite.config.ts
+/dist/vue-virtual-list.mjs

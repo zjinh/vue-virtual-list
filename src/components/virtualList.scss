@@ -1,0 +1,33 @@
+.virtual-list {
+  overflow-x: hidden;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+.virtual-list-phantom {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  z-index: -1;
+}
+.virtual-list-container {
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 0;
+  position: absolute;
+}
+.virtual-item-group.flex {
+  display: flex;
+}
+.mouse-area {
+  position: absolute;
+  z-index: 2;
+}
+.mouse-area.default {
+  background-color: #3388ff94;
+  border: 1px solid #38f;
+}
