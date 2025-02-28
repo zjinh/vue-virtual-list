@@ -22,11 +22,18 @@ interface PosData{
   top:number,
   bottom:number,
 }
+interface ScrollData{
+  start: number,
+  end:number,
+  startOffset: number,
+  scrollTop:number,
+  direction:string
+}
 const _ ={
-  debounce(func, wait = 50, immediate = false) {
+  debounce(func:Function, wait = 50, immediate = false) {
     let timer:NodeJS.Timeout|null = null;
-    let result;
-    let debounced = function(...args) {
+    let result:any = null;
+    return function(...args:any) {
       if (timer) {
         clearTimeout(timer)
       }
@@ -45,10 +52,8 @@ const _ ={
       }
       return result;
     }
-    return debounced;
   },
-  randomString(len) {
-    len = len || 32;
+  randomString(len:number=32) {
     let $chars = 'ABCDEFGHJKMNPQRSTWXYZabcdefhijkmnprstwxyz2345678';    /****默认去掉了容易混淆的字符oOLl,9gq,Vv,Uu,I1****/
     let maxPos = $chars.length;
     let pwd = '';
@@ -232,7 +237,7 @@ export default {
     const preventAutoScroll = ref(false)
     const lastDirection = ref('')
     const styleObj:Ref<HTMLElement|null> = ref(null)
-    const randomClass = ref('virtual_' + _.randomString('5').toLowerCase())
+    const randomClass = ref('virtual_' + _.randomString(5).toLowerCase())
     const ready = ref(false)
     const active = ref(true)
     let resizer:ResizeObserver|null = null
@@ -319,7 +324,7 @@ export default {
 
     const _listData = computed(() => {
       if (column.value === 0 || !ready.value) return []
-      return props.listData.reduce((init, cur, index) => {
+      return props.listData.reduce((init:any, cur:any, index:number) => {
         let item = cur;
         item._index=index
         if (index % column.value === 0 || index === 0) {
@@ -366,7 +371,7 @@ export default {
     const nowSelectIndex = computed(() => {
       let data:number[] = []
       if (!props.itemWidth && props.calcGroupSelect) {
-        props.listData.forEach((item, index) => {
+        props.listData.forEach((item:any, index:number) => {
           if (item[props.selectField]) {
             data.push(index)
           }
@@ -455,7 +460,7 @@ export default {
 
     const getSizeInfo = () => {
       if (!elm.value) {
-       return
+        return
       }
 
       try {
@@ -493,13 +498,13 @@ export default {
       });
     }
     //防抖处理，设置滚动状态
-    const scrollEnd = _.debounce((event, data) => {
+    const scrollEnd = _.debounce((event:MouseEvent, data:ScrollData) => {
       if (active.value) {
         emit('scrollEnd', event, data)
       }
     }, 100)
 
-    const scrollingEvent = (event, data) => {
+    const scrollingEvent = (event:MouseEvent, data:ScrollData) => {
       oldScrollTop.value = data.scrollTop
       if (active.value) {
         emit('scrolling', event, data)
@@ -549,7 +554,7 @@ export default {
     //获取列表项的当前尺寸
     const updateItemsSize = () => {
       let renderItem=getRenderItems()
-      renderItem.forEach((node) => {
+      renderItem.forEach((node:Element) => {
         let rect = node.getBoundingClientRect()
         let height = rect.height
         let index = +node.id.replace(/^_(\d+).*/, '$1')
@@ -591,7 +596,7 @@ export default {
       return phantom.value?.offsetHeight || 0
     }
 
-    const scrollEvent = (e, force = false) => {
+    const scrollEvent = (e:any, force = false) => {
       if (!e?.target) return
 
       let element = e.target
@@ -614,7 +619,7 @@ export default {
 
       //触发外部滚动事件
       let direction = (scrollTop - oldScrollTop.value >= 0) ? 'down' : 'up'
-      let data = {
+      let data:ScrollData = {
         start: start.value * column.value,
         end: Math.min(end.value * column.value, props.listData.length - 1),
         startOffset: startOffset.value,
@@ -643,7 +648,7 @@ export default {
       }
     }
 
-    const scrollDownEvent = _.debounce((scrollHeight) => {
+    const scrollDownEvent = _.debounce((scrollHeight:number) => {
       if (scrollHeight === getScrollHeight()) {
         emit('scrollDown')
       }
@@ -672,7 +677,7 @@ export default {
     }
 
     //鼠标框选
-    const handleMouseSelect = (data) => {
+    const handleMouseSelect = (data:any) => {
       let start = data.start
       let end = data.end
       let area_data = {
@@ -725,7 +730,7 @@ export default {
     }
 
     //计算当前节点的选中
-    const activeGroupPosition = (item, index) => {
+    const activeGroupPosition = (item:any, index:number) => {
       let data = groupByIndex.value
       let result = { start: false, end: false }
 
@@ -759,7 +764,7 @@ export default {
         await nextTick()
       }
 
-      let listIndex = index
+      let listIndex: number
       let scrollTop = 0
       let currentScrollHeight = getScrollHeight()
 
@@ -828,7 +833,7 @@ export default {
       })
     }
 
-    const updatePhantomStyle = (height) => {
+    const updatePhantomStyle = (height:string) => {
       if (phantom.value) {
         phantom.value.style.height = height
       }
@@ -845,7 +850,6 @@ export default {
       class: ['virtual-list', randomClass.value],
       style: listHeight.value,
       ...renderHelper({
-        'data-v': '1.2.6',
         'data-w': props.itemWidth,
         'data-h': props.itemHeight,
       }, { scroll: scrollEvent })
@@ -868,7 +872,7 @@ export default {
             id: row._key,
           }),
           key: row._key
-        }, row.value.map((item) =>
+        }, row.value.map((item:any) =>
           h('div', {
             class: 'virtual-item w',
             key: `${row._key}-${item._index}`,
@@ -905,4 +909,3 @@ export default {
     ])
   }
 }
-
