@@ -43,11 +43,11 @@ const _ ={
           timer = null;
         }, wait);
         if (callNow) {
-          result = func(args)
+          result = func(...args)
         }
       } else {
         timer = setTimeout(() => {
-          func(args)
+          func(...args)
         }, wait);
       }
       return result;
