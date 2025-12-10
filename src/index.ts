@@ -1,2 +1,2 @@
-import virtualList from './components/virtualList'
+import virtualList from './components/index'
 export default virtualList;
